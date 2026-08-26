@@ -274,6 +274,11 @@ footer {
   border-radius: 10px;
   background: #fff;
 }
+.guide-step-body {
+  /* without this, the step's img forces the flex item wider than the
+     card since a flex item's default min-width is its content size */
+  min-width: 0;
+}
 .guide-step-num {
   flex-shrink: 0;
   width: 32px;
