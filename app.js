@@ -237,7 +237,7 @@ async function process() {
 
   const marginAboveMm = numOr(marginAboveInput.value, 8);
   const marginBelowMm = numOr(marginBelowInput.value, 7);
-  const gapMm = numOr(gapMmInput.value, 5);
+  const gapMm = numOr(gapMmInput.value, 0);
 
   const totalCards = allCardsByPage.reduce(
     (s, p) => s + p.cards.reduce((s2, c) => s2 + Math.max(0, Math.round(numOr(document.getElementById(c.countInputId).value, 1))), 0),

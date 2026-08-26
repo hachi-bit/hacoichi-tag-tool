@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <main class="wrap">
@@ -49,7 +49,7 @@
         <span>タグ間のすき間</span>
         <span class="stepper">
           <button type="button" class="step-btn" data-target="gapMm" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="gapMm" value="5" min="0" max="20" step="1">
+          <input type="number" id="gapMm" value="0" min="0" max="20" step="1">
           <button type="button" class="step-btn" data-target="gapMm" data-step="1" aria-label="1mm増やす">＋</button>
           <span class="unit">mm</span>
         </span>
@@ -75,6 +75,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>

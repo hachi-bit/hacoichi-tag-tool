@@ -302,9 +302,11 @@ footer {
   line-height: 1.7;
 }
 .guide-img {
+  /* screenshots already have their own border baked in (they're crops of
+     already-bordered UI elements) - adding another one here just doubles
+     the line at every edge */
   display: block;
   width: 100%;
+  max-width: 320px;
   margin-top: 12px;
-  border: 1px solid var(--gray-line);
-  border-radius: 8px;
 }
