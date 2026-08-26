@@ -251,3 +251,48 @@ footer {
   text-align: center;
   line-height: 1.6;
 }
+
+.usage-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+  color: var(--bee-black);
+  text-decoration: underline;
+}
+
+.guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 24px;
+}
+.guide-step {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--gray-line);
+  border-radius: 10px;
+  background: #fff;
+}
+.guide-step-num {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bee-yellow);
+  color: var(--bee-black);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.guide-step-body h2 {
+  font-size: 1rem;
+  margin: 2px 0 6px;
+}
+.guide-step-body p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #5a5347;
+  line-height: 1.7;
+}
