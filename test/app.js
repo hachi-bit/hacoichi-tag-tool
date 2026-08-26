@@ -11,6 +11,7 @@ const RENDER_SCALE = 4; // render resolution multiplier for card detection
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 const statusEl = document.getElementById("status");
+const processStatusEl = document.getElementById("processStatus");
 const optionsEl = document.getElementById("options");
 const processBtn = document.getElementById("processBtn");
 const previewArea = document.getElementById("previewArea");
@@ -105,10 +106,19 @@ marginBelowInput.addEventListener("input", renderSchematic);
 gapMmInput.addEventListener("input", renderSchematic);
 renderSchematic();
 
+// upload/detection messages go next to the dropzone; conversion messages go
+// next to the "変換する" button - each near the control that triggered it,
+// so an error doesn't end up out of view above a long cards/settings list
 function setStatus(msg, kind) {
-  statusEl.hidden = false;
-  statusEl.textContent = msg;
-  statusEl.className = "status" + (kind ? " " + kind : "");
+  setStatusOn(statusEl, msg, kind);
+}
+function setProcessStatus(msg, kind) {
+  setStatusOn(processStatusEl, msg, kind);
+}
+function setStatusOn(el, msg, kind) {
+  el.hidden = false;
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
 }
 
 dropzone.addEventListener("click", () => fileInput.click());
@@ -136,6 +146,7 @@ async function handleFile(file) {
   cardsSectionEl.hidden = true;
   optionsEl.hidden = true;
   previewArea.hidden = true;
+  processStatusEl.hidden = true;
   setStatus(`「${file.name}」を読み込みました。カードを検出しています…`, null);
 
   try {
@@ -227,13 +238,14 @@ processBtn.addEventListener("click", () => {
   if (!currentFileBytes || !allCardsByPage) return;
   process().catch((err) => {
     console.error(err);
-    setStatus("エラーが発生しました：" + err.message, "error");
+    processBtn.disabled = false;
+    setProcessStatus("エラーが発生しました：" + err.message, "error");
   });
 });
 
 async function process() {
   processBtn.disabled = true;
-  setStatus("タグPDFを作成しています…", null);
+  setProcessStatus("タグPDFを作成しています…", null);
 
   const marginAboveMm = numOr(marginAboveInput.value, 8);
   const marginBelowMm = numOr(marginBelowInput.value, 7);
@@ -344,7 +356,7 @@ async function process() {
 
   await renderPreview(outBytes);
 
-  setStatus(`完成しました！${totalCards}件のタグを作成しました。`, "ok");
+  setProcessStatus(`完成しました！${totalCards}件のタグを作成しました。`, "ok");
   processBtn.disabled = false;
 }
 
