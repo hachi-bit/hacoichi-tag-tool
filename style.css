@@ -227,7 +227,17 @@ button:disabled { background: #ccc; cursor: not-allowed; }
   margin-top: 28px;
 }
 .preview h2 { font-size: 1rem; margin-bottom: 10px; }
-#previewCanvas {
+.preview-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.preview-page-label {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  color: #6b6152;
+}
+.preview-page-canvas {
   width: 100%;
   border: 1px solid var(--gray-line);
   border-radius: 8px;

@@ -14,7 +14,7 @@ const statusEl = document.getElementById("status");
 const optionsEl = document.getElementById("options");
 const processBtn = document.getElementById("processBtn");
 const previewArea = document.getElementById("previewArea");
-const previewCanvas = document.getElementById("previewCanvas");
+const previewPagesEl = document.getElementById("previewPages");
 const downloadLink = document.getElementById("downloadLink");
 const marginAboveInput = document.getElementById("marginAbove");
 const marginBelowInput = document.getElementById("marginBelow");
@@ -351,12 +351,28 @@ async function process() {
 async function renderPreview(pdfBytes) {
   const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice() });
   const doc = await loadingTask.promise;
-  const page = await doc.getPage(1);
-  const viewport = page.getViewport({ scale: 2 });
-  previewCanvas.width = viewport.width;
-  previewCanvas.height = viewport.height;
-  const ctx = previewCanvas.getContext("2d");
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  previewPagesEl.innerHTML = "";
+  // show every output page, not just the first - otherwise a multi-page
+  // result looks like only one sheet was produced until you download it
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement("canvas");
+    canvas.className = "preview-page-canvas";
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+
+    const wrapper = document.createElement("div");
+    if (doc.numPages > 1) {
+      const label = document.createElement("p");
+      label.className = "preview-page-label";
+      label.textContent = `${pageNum} / ${doc.numPages} ページ目`;
+      wrapper.appendChild(label);
+    }
+    wrapper.appendChild(canvas);
+    previewPagesEl.appendChild(wrapper);
+  }
   previewArea.hidden = false;
 }
 
