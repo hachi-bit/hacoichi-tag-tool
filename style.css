@@ -296,3 +296,10 @@ footer {
   color: #5a5347;
   line-height: 1.7;
 }
+.guide-img {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--gray-line);
+  border-radius: 8px;
+}
