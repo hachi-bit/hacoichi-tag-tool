@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ハコイチ値札加工ツール | 鉢-bit</title>
+<link rel="stylesheet" href="style.css?v=9">
+</head>
+<body>
+  <main class="wrap">
+    <h1>🐝 ハコイチ値札加工ツール</h1>
+    <p class="lead">ハコイチ管理システムから出力したバーコードPDFを、ホチキス留めしやすい余白付きの値札PDFに変換します。</p>
+    <a class="usage-link" href="usage.html">📖 使い方ガイドを見る</a>
+
+    <div id="dropzone" class="dropzone">
+      <p>ここにPDFをドラッグ＆ドロップ<br>またはタップして選択</p>
+      <input type="file" id="fileInput" accept="application/pdf" hidden>
+    </div>
+
+    <div id="status" class="status" hidden></div>
+
+    <section id="cardsSection" class="options" hidden>
+      <h2>検出したタグ・枚数</h2>
+      <p class="schematic-label">同じタグを複数枚ホチキス留めしたい場合は枚数を増やしてください（0枚でそのタグを除外）。</p>
+      <div id="cardsList" class="cards-list"></div>
+    </section>
+
+    <section id="options" class="options" hidden>
+      <h2>レイアウト設定</h2>
+      <label>
+        <span>ホチキス上の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginAbove" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginAbove" value="8" min="2" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginAbove" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label>
+        <span>ホチキス下の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginBelow" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginBelow" value="7" min="2" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginBelow" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label>
+        <span>タグ間のすき間</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="gapMm" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="gapMm" value="0" min="0" max="20" step="1">
+          <button type="button" class="step-btn" data-target="gapMm" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+
+      <div class="schematic">
+        <p class="schematic-label">配置イメージ（実際の値札の内容は変換後にプレビューできます）</p>
+        <div id="schematicPreview" class="schematic-preview"></div>
+      </div>
+
+      <button id="processBtn">この設定で変換する</button>
+    </section>
+
+    <div id="previewArea" class="preview" hidden>
+      <h2>プレビュー</h2>
+      <div id="previewPages" class="preview-pages"></div>
+      <a id="downloadLink" class="download-btn" hidden download="値札_ホチキス加工版.pdf">📄 加工済みPDFをダウンロード</a>
+    </div>
+
+    <footer>
+      <p>鉢-bit（はちびっと） / 処理はすべてこのブラウザ内で行われます。PDFは外部に送信されません。</p>
+    </footer>
+  </main>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script type="module" src="app.js?v=9"></script>
+</body>
+</html>
