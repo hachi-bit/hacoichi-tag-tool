@@ -154,14 +154,16 @@ h1 {
 }
 
 .detail-link {
+  display: block;
   border: none;
   background: none;
   padding: 0;
-  margin: 0;
+  margin: -8px 0 12px;
   font-size: 0.8rem;
   color: var(--bee-yellow-dark);
   text-decoration: underline;
   cursor: pointer;
+  text-align: left;
 }
 .detail-panel-wrap {
   display: grid;
