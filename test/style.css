@@ -143,7 +143,34 @@ h1 {
 }
 .step-btn:hover { background: #f1efe8; }
 .step-btn:active { background: #e5e1d6; }
-.unit { color: #6b6152; font-size: 0.85rem; }
+.unit {
+  color: #6b6152;
+  font-size: 0.85rem;
+  /* fixed width regardless of the unit text ("mm" vs "%" etc.), so the
+     stepper's overall width - and therefore the -/+ buttons' position -
+     stays identical across rows instead of shifting with the label */
+  display: inline-block;
+  min-width: 1.6em;
+}
+
+.detail-link {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--bee-yellow-dark);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.detail-panel-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+}
+.detail-panel-wrap.open { grid-template-rows: 1fr; }
+.detail-panel-inner { overflow: hidden; }
+.detail-panel-inner .schematic-label { margin: 0 0 12px; }
 
 .schematic { margin: 4px 0 16px; }
 .schematic-label {

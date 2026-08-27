@@ -228,6 +228,17 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
+// "詳細" links toggle an accordion-style explanation panel open/closed
+document.addEventListener("click", (e) => {
+  const link = e.target.closest(".detail-link");
+  if (!link) return;
+  const panel = document.getElementById(link.dataset.detail);
+  if (!panel) return;
+  const open = panel.classList.toggle("open");
+  link.textContent = open ? "閉じる" : "詳細";
+  link.setAttribute("aria-expanded", String(open));
+});
+
 // the staple flap fields' visibility depends on BOTH whether staple is on
 // and whether detailed mode is on, so it's recomputed from both handlers
 function updateStapleRowVisibility() {
