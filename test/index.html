@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
   <main class="wrap">
@@ -123,7 +123,10 @@
       </label>
 
       <label>
-        <span>カードの拡大率</span>
+        <span class="label-with-detail">
+          <span>カードの拡大率</span>
+          <button type="button" class="detail-link" data-detail="cardScaleDetail" aria-expanded="false">詳細</button>
+        </span>
         <span class="stepper">
           <button type="button" class="step-btn" data-target="cardScale" data-step="-5" aria-label="5%減らす">－</button>
           <input type="number" id="cardScale" value="100" min="100" max="300" step="5">
@@ -131,14 +134,16 @@
           <span class="unit">%</span>
         </span>
       </label>
-      <button type="button" class="detail-link" data-detail="cardScaleDetail" aria-expanded="false">詳細</button>
       <div class="detail-panel-wrap" id="cardScaleDetail">
         <div class="detail-panel-inner">
           <p class="schematic-label">タグ自体が小さいと感じる場合に、カード（バーコードや文字）を拡大できます。大きくするほどタグ全体のサイズも一緒に大きくなります。</p>
         </div>
       </div>
       <label>
-        <span>カードのふちを削る</span>
+        <span class="label-with-detail">
+          <span>カードのふちを削る</span>
+          <button type="button" class="detail-link" data-detail="cardTrimDetail" aria-expanded="false">詳細</button>
+        </span>
         <span class="stepper">
           <button type="button" class="step-btn" data-target="cardTrim" data-step="-1" aria-label="1mm減らす">－</button>
           <input type="number" id="cardTrim" value="2" min="0" max="5" step="1">
@@ -146,7 +151,6 @@
           <span class="unit">mm</span>
         </span>
       </label>
-      <button type="button" class="detail-link" data-detail="cardTrimDetail" aria-expanded="false">詳細</button>
       <div class="detail-panel-wrap" id="cardTrimDetail">
         <div class="detail-panel-inner">
           <p class="schematic-label">下の「配置イメージ」に実際のカードが反映され、削った分だけ縮んで表示されます。商品カードの黒い枠線が消えるくらいが目安です。増やしすぎると文字やバーコードも一緒に切れてしまうので、確認しながら調整してください。</p>
@@ -174,6 +178,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=30"></script>
+<script type="module" src="app.js?v=31"></script>
 </body>
 </html>

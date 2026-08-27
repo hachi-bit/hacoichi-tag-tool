@@ -153,6 +153,13 @@ h1 {
   min-width: 1.6em;
 }
 
+.label-with-detail {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+}
 /* overrides the generic "button, .download-btn" rule below (same specificity
    tie on :hover, so this needs "button.detail-link" to win reliably) */
 button.detail-link {
@@ -163,7 +170,7 @@ button.detail-link {
   border: none;
   background: none;
   padding: 0;
-  margin: -8px 0 12px;
+  margin: 0;
   font-size: 0.8rem;
   color: var(--bee-yellow-dark);
   text-decoration: underline;

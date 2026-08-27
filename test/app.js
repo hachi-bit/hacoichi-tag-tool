@@ -228,14 +228,15 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
-// "詳細" links toggle an accordion-style explanation panel open/closed
+// "詳細" links toggle an accordion-style explanation panel open/closed. The
+// label text stays "詳細" either way (rather than swapping to "閉じる") so
+// its width never changes and the row never re-wraps just from toggling.
 document.addEventListener("click", (e) => {
   const link = e.target.closest(".detail-link");
   if (!link) return;
   const panel = document.getElementById(link.dataset.detail);
   if (!panel) return;
   const open = panel.classList.toggle("open");
-  link.textContent = open ? "閉じる" : "詳細";
   link.setAttribute("aria-expanded", String(open));
 });
 
