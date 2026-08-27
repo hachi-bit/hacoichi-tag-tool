@@ -52,19 +52,26 @@ function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide) {
+function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, skipLeftBorder) {
   const staple = showStaple
     ? `<div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
        <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>`
     : "";
   const border = showCutGuide ? "1px dashed #b9b2a3" : "none";
+  // when the two illustrated tags are touching (gap 0), the second one
+  // skips its own left border - otherwise its left edge and the first
+  // tag's right edge sit on the exact same line and visually double up,
+  // same as the real cut guide used to before that got the same fix
+  const borderStyle = skipLeftBorder
+    ? `border-top:${border}; border-right:${border}; border-bottom:${border}; border-left:none;`
+    : `border:${border};`;
   // once a real card is detected, show it (cropped by the current trim)
   // instead of the generic hatched placeholder
   const cardStyle = cardImgSrc
     ? `background-image:url(${cardImgSrc}); background-size:cover; background-position:center; background-repeat:no-repeat;`
     : "";
   return `
-    <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;border:${border};">
+    <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;${borderStyle}">
       ${staple}
       <div class="schem-card" style="left:${schemPx(cardMarginMm)}px; top:${schemPx(foldMm)}px; width:${schemPx(cardWmm)}px; height:${schemPx(cardHmm)}px; ${cardStyle}"></div>
     </div>
@@ -116,8 +123,9 @@ function renderSchematic() {
 
   const tagWmm = cardMarginMm * 2 + cardWmm;
   const tagHmm = foldMm + cardHmm + cardMarginMm;
-  const tag = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide);
-  schematicPreview.innerHTML = `${tag}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag}`;
+  const tag1 = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, false);
+  const tag2 = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, gapMm === 0);
+  schematicPreview.innerHTML = `${tag1}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag2}`;
 }
 
 function adjustValue(input, step) {
