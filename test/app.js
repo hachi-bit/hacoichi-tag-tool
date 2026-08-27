@@ -414,10 +414,14 @@ async function process() {
         const tagBottomY = page_h - (oyTop + tag_h);
 
         if (showCutGuide) {
+          // a [2,2]pt dash is too fine to read as "dashed" once a PDF
+          // viewer anti-aliases it down at typical zoom - it just looks
+          // like a thin solid line, especially where two tags' guides sit
+          // on the same shared edge. A coarser dash survives that.
           outPage.drawRectangle({
             x: ox, y: tagBottomY, width: tag_w, height: tag_h,
-            borderColor: rgb(0.55, 0.55, 0.55), borderWidth: 0.6,
-            borderDashArray: [2, 2],
+            borderColor: rgb(0.5, 0.5, 0.5), borderWidth: 0.7,
+            borderDashArray: [4, 2.5],
           });
         }
 
