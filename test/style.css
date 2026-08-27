@@ -175,6 +175,10 @@ h1 {
   right: 2px;
   border-top: 1px dashed #b9b2a3;
   transition: top 0.12s ease;
+  /* sits at the same y as the card's own top edge by design (like the
+     real PDF's fold line), so it needs to stay above .schem-card - it's
+     inserted before it in the markup and would otherwise be covered */
+  z-index: 1;
 }
 .schem-cross {
   position: absolute;
@@ -184,6 +188,7 @@ h1 {
   font-size: 15px;
   line-height: 1;
   transition: top 0.12s ease;
+  z-index: 1;
 }
 .schem-card {
   position: absolute;
