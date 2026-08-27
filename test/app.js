@@ -29,9 +29,11 @@ const gapMmInput = document.getElementById("gapMm");
 const schematicPreview = document.getElementById("schematicPreview");
 const cardsSectionEl = document.getElementById("cardsSection");
 const cardsListEl = document.getElementById("cardsList");
+const trimPreviewCanvas = document.getElementById("trimPreviewCanvas");
 
 let currentFileBytes = null;
 let allCardsByPage = null; // detection result for the current file, cached so re-clicking "変換する" doesn't re-detect
+let trimPreviewSource = null; // a real, uncropped raster of one detected card, used to show the actual trim effect
 
 // parseFloat(...) || fallback would wrongly replace a legitimate 0 with the
 // fallback (0 is falsy), so check for a finite number instead.
@@ -161,6 +163,7 @@ async function handleFile(file) {
   }
   currentFileBytes = new Uint8Array(await file.arrayBuffer());
   allCardsByPage = null;
+  trimPreviewSource = null;
   cardsSectionEl.hidden = true;
   optionsEl.hidden = true;
   previewArea.hidden = true;
@@ -169,9 +172,10 @@ async function handleFile(file) {
 
   try {
     allCardsByPage = await detectCards();
+    renderCardsList();
+    updateTrimPreview();
     cardsSectionEl.hidden = false;
     optionsEl.hidden = false;
-    renderCardsList(); // needs the section visible first, so the thumbnails have a real clientWidth for the trim overlay
     const totalCards = allCardsByPage.reduce((s, p) => s + p.cards.length, 0);
     setStatus(`${totalCards}件のタグを検出しました。枚数と設定を確認して「変換する」を押してください。`, "ok");
   } catch (err) {
@@ -206,24 +210,33 @@ async function detectCards() {
     }
     const pageHeightPt = viewport.height / RENDER_SCALE;
     const THUMB_W = 160;
-    const cardsPt = boxesPx
-      .sort((a, b) => a.minY - b.minY || a.minX - b.minX)
-      .map((b) => {
-        const wPx = b.maxX - b.minX, hPx = b.maxY - b.minY;
-        const thumbCanvas = document.createElement("canvas");
-        thumbCanvas.width = THUMB_W;
-        thumbCanvas.height = Math.round((hPx / wPx) * THUMB_W);
-        thumbCanvas
-          .getContext("2d")
-          .drawImage(canvas, b.minX, b.minY, wPx, hPx, 0, 0, thumbCanvas.width, thumbCanvas.height);
-        return {
-          x0: b.minX / RENDER_SCALE,
-          x1: b.maxX / RENDER_SCALE,
-          top: b.minY / RENDER_SCALE,
-          bottom: b.maxY / RENDER_SCALE,
-          thumbUrl: thumbCanvas.toDataURL("image/png"),
-        };
-      });
+    const sortedBoxes = boxesPx.sort((a, b) => a.minY - b.minY || a.minX - b.minX);
+    const cardsPt = sortedBoxes.map((b) => {
+      const wPx = b.maxX - b.minX, hPx = b.maxY - b.minY;
+      const thumbCanvas = document.createElement("canvas");
+      thumbCanvas.width = THUMB_W;
+      thumbCanvas.height = Math.round((hPx / wPx) * THUMB_W);
+      thumbCanvas
+        .getContext("2d")
+        .drawImage(canvas, b.minX, b.minY, wPx, hPx, 0, 0, thumbCanvas.width, thumbCanvas.height);
+      return {
+        x0: b.minX / RENDER_SCALE,
+        x1: b.maxX / RENDER_SCALE,
+        top: b.minY / RENDER_SCALE,
+        bottom: b.maxY / RENDER_SCALE,
+        thumbUrl: thumbCanvas.toDataURL("image/png"),
+      };
+    });
+    if (!trimPreviewSource) {
+      // keep a real, full-resolution, uncropped copy of one card so
+      // "カードのふちを削る" can show the actual crop instead of a mock-up
+      const b = sortedBoxes[0];
+      const src = document.createElement("canvas");
+      src.width = b.maxX - b.minX;
+      src.height = b.maxY - b.minY;
+      src.getContext("2d").drawImage(canvas, b.minX, b.minY, src.width, src.height, 0, 0, src.width, src.height);
+      trimPreviewSource = src;
+    }
     result.push({ pageIndex: pageNum - 1, pageHeightPt, cards: cardsPt });
   }
   return result;
@@ -237,10 +250,7 @@ function renderCardsList() {
       c.countInputId = `cardCount${idx}`;
       items.push(`
         <div class="card-item">
-          <div class="card-thumb-wrap">
-            <img class="card-thumb" src="${c.thumbUrl}" alt="検出したタグ ${idx + 1}">
-            <div class="trim-overlay" data-w-pt="${(c.x1 - c.x0).toFixed(3)}"></div>
-          </div>
+          <img class="card-thumb" src="${c.thumbUrl}" alt="検出したタグ ${idx + 1}">
           <span class="stepper">
             <button type="button" class="step-btn" data-target="${c.countInputId}" data-step="-1" aria-label="1枚減らす">－</button>
             <input type="number" id="${c.countInputId}" value="1" min="0" max="50" step="1">
@@ -253,26 +263,28 @@ function renderCardsList() {
     }
   }
   cardsListEl.innerHTML = items.join("");
-  updateCardTrimOverlay();
 }
 
-// tints the outer band that "カードのふちを削る" will crop away in red,
-// directly on the real card thumbnails above, so the effect of that mm
-// value is visible immediately instead of only after converting
-function updateCardTrimOverlay() {
+// actually crops the real reference card raster by the current trim amount
+// and draws it into the preview canvas, so the user sees the true result
+// instead of a mock-up
+function updateTrimPreview() {
+  if (!trimPreviewSource) return;
   const trimMm = Math.max(0, numOr(cardTrimInput.value, 2));
-  const trimPt = trimMm * MM;
-  cardsListEl.querySelectorAll(".trim-overlay").forEach((el) => {
-    const wPt = parseFloat(el.dataset.wPt);
-    if (!wPt || trimMm <= 0) {
-      el.style.boxShadow = "none";
-      return;
-    }
-    const px = (trimPt / wPt) * el.clientWidth;
-    el.style.boxShadow = `inset 0 0 0 ${px.toFixed(1)}px rgba(214,64,64,0.55)`;
-  });
+  const trimPx = trimMm * MM * RENDER_SCALE;
+  const sw = Math.max(1, trimPreviewSource.width - 2 * trimPx);
+  const sh = Math.max(1, trimPreviewSource.height - 2 * trimPx);
+  const sx = Math.min(trimPx, trimPreviewSource.width / 2);
+  const sy = Math.min(trimPx, trimPreviewSource.height / 2);
+
+  const PREVIEW_W = 240;
+  trimPreviewCanvas.width = PREVIEW_W;
+  trimPreviewCanvas.height = Math.round((sh / sw) * PREVIEW_W);
+  const ctx = trimPreviewCanvas.getContext("2d");
+  ctx.clearRect(0, 0, trimPreviewCanvas.width, trimPreviewCanvas.height);
+  ctx.drawImage(trimPreviewSource, sx, sy, sw, sh, 0, 0, trimPreviewCanvas.width, trimPreviewCanvas.height);
 }
-cardTrimInput.addEventListener("input", updateCardTrimOverlay);
+cardTrimInput.addEventListener("input", updateTrimPreview);
 
 processBtn.addEventListener("click", () => {
   if (!currentFileBytes || !allCardsByPage) return;
