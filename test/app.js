@@ -98,12 +98,7 @@ function renderSchematic() {
   const showCutGuide = cutGuideEnabledInput.checked;
   marginAboveRow.hidden = !showStaple;
   marginBelowRow.hidden = !showStaple;
-  let cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
-  // a cut guide drawn flush against the card's own edge (margin 0) has no
-  // room of its own - it sits exactly on the card's edge (or, for touching
-  // cards, on both neighbors' edges at once) and gets covered or doubled up,
-  // so reserve a sliver of real space for it whenever it's on
-  if (showCutGuide) cardMarginMm = Math.max(cardMarginMm, 1);
+  const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
   // without a staple mark there's no special top region to reserve - just
   // give the card the same small margin on every side
   const marginAboveMm = showStaple ? numOr(marginAboveInput.value, 0) : cardMarginMm;
@@ -331,12 +326,7 @@ async function process() {
 
   const showCutGuide = cutGuideEnabledInput.checked;
   const stapleEnabled = stapleEnabledInput.checked;
-  let cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
-  // a cut guide drawn flush against the card's own edge (margin 0) has no
-  // room of its own - it sits exactly on the card's edge (or, for touching
-  // cards, on both neighbors' edges at once) and gets covered or doubled up,
-  // so reserve a sliver of real space for it whenever it's on
-  if (showCutGuide) cardMarginMm = Math.max(cardMarginMm, 1);
+  const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
   const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
   // without a staple mark there's no special top region to reserve - just
   // give the card the same margin on every side as the rest of the tag
