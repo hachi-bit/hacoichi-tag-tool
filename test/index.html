@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <main class="wrap">
@@ -27,7 +27,11 @@
 
     <section id="options" class="options" hidden>
       <h2>レイアウト設定</h2>
-      <label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="stapleEnabled" checked>
+        <span>ホチキスの目印を追加する</span>
+      </label>
+      <label id="marginAboveRow">
         <span>ホチキス上の余白</span>
         <span class="stepper">
           <button type="button" class="step-btn" data-target="marginAbove" data-step="-1" aria-label="1mm減らす">－</button>
@@ -36,7 +40,7 @@
           <span class="unit">mm</span>
         </span>
       </label>
-      <label>
+      <label id="marginBelowRow">
         <span>ホチキス下の余白</span>
         <span class="stepper">
           <button type="button" class="step-btn" data-target="marginBelow" data-step="-1" aria-label="1mm減らす">－</button>
@@ -76,6 +80,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>

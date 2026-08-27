@@ -17,6 +17,9 @@ const processBtn = document.getElementById("processBtn");
 const previewArea = document.getElementById("previewArea");
 const previewPagesEl = document.getElementById("previewPages");
 const downloadLink = document.getElementById("downloadLink");
+const stapleEnabledInput = document.getElementById("stapleEnabled");
+const marginAboveRow = document.getElementById("marginAboveRow");
+const marginBelowRow = document.getElementById("marginBelowRow");
 const marginAboveInput = document.getElementById("marginAbove");
 const marginBelowInput = document.getElementById("marginBelow");
 const gapMmInput = document.getElementById("gapMm");
@@ -45,24 +48,32 @@ function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm) {
+function schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm, showStaple) {
+  const staple = showStaple
+    ? `<div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
+       <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>`
+    : "";
   return `
     <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;">
-      <div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
-      <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>
+      ${staple}
       <div class="schem-card" style="left:${schemPx(SCHEM_SIDE_MARGIN_MM)}px; top:${schemPx(foldMm)}px; width:${schemPx(SCHEM_CARD_W_MM)}px; height:${schemPx(SCHEM_CARD_H_MM)}px;"></div>
     </div>
   `;
 }
 
 function renderSchematic() {
-  const marginAboveMm = numOr(marginAboveInput.value, 0);
-  const marginBelowMm = numOr(marginBelowInput.value, 0);
+  const showStaple = stapleEnabledInput.checked;
+  marginAboveRow.hidden = !showStaple;
+  marginBelowRow.hidden = !showStaple;
+  // without a staple mark there's no special top region to reserve - just
+  // give the card the same small margin on every side
+  const marginAboveMm = showStaple ? numOr(marginAboveInput.value, 0) : SCHEM_BOTTOM_MARGIN_MM;
+  const marginBelowMm = showStaple ? numOr(marginBelowInput.value, 0) : 0;
   const gapMm = Math.max(0, numOr(gapMmInput.value, 0));
   const foldMm = marginAboveMm + marginBelowMm;
   const tagWmm = SCHEM_SIDE_MARGIN_MM * 2 + SCHEM_CARD_W_MM;
   const tagHmm = foldMm + SCHEM_CARD_H_MM + SCHEM_BOTTOM_MARGIN_MM;
-  const tag = schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm);
+  const tag = schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm, showStaple);
   schematicPreview.innerHTML = `${tag}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag}`;
 }
 
@@ -101,6 +112,7 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
+stapleEnabledInput.addEventListener("change", renderSchematic);
 marginAboveInput.addEventListener("input", renderSchematic);
 marginBelowInput.addEventListener("input", renderSchematic);
 gapMmInput.addEventListener("input", renderSchematic);
@@ -247,8 +259,11 @@ async function process() {
   processBtn.disabled = true;
   setProcessStatus("タグPDFを作成しています…", null);
 
-  const marginAboveMm = numOr(marginAboveInput.value, 8);
-  const marginBelowMm = numOr(marginBelowInput.value, 7);
+  const stapleEnabled = stapleEnabledInput.checked;
+  // without a staple mark there's no special top region to reserve - just
+  // give the card the same small margin on every side (matches bottom_margin)
+  const marginAboveMm = stapleEnabled ? numOr(marginAboveInput.value, 8) : 3;
+  const marginBelowMm = stapleEnabled ? numOr(marginBelowInput.value, 7) : 0;
   const gapMm = numOr(gapMmInput.value, 0);
 
   const totalCards = allCardsByPage.reduce(
@@ -271,7 +286,7 @@ async function process() {
   const bottom_margin = 3 * MM;
   const side_margin = 3 * MM;
   const gap = gapMm * MM;
-  const page_margin = 10 * MM;
+  const min_page_margin = 3 * MM; // printer-safe minimum, not a fixed layout margin
   const page_w = 595.0, page_h = 842.0; // A4
 
   // cards are usually a consistent size, but height can vary slightly row
@@ -285,11 +300,16 @@ async function process() {
   const tag_w = side_margin * 2 + maxCardW;
   const tag_h = staple_margin + maxCardH + bottom_margin;
 
-  const usable_w = page_w - 2 * page_margin;
-  const usable_h = page_h - 2 * page_margin;
-  const cols = Math.max(1, Math.floor((usable_w + gap) / (tag_w + gap)));
-  const rows = Math.max(1, Math.floor((usable_h + gap) / (tag_h + gap)));
+  // fit as many columns/rows as actually fit within a minimal margin, then
+  // center the resulting grid so leftover space is spread evenly around it
+  // instead of being dumped as one big unused strip on the right/bottom
+  const cols = Math.max(1, Math.floor((page_w - 2 * min_page_margin + gap) / (tag_w + gap)));
+  const rows = Math.max(1, Math.floor((page_h - 2 * min_page_margin + gap) / (tag_h + gap)));
   const perPage = cols * rows;
+  const grid_w = cols * tag_w + (cols - 1) * gap;
+  const grid_h = rows * tag_h + (rows - 1) * gap;
+  const page_margin_x = (page_w - grid_w) / 2;
+  const page_margin_y = (page_h - grid_h) / 2;
 
   let outPage = null;
   let idx = 0;
@@ -313,8 +333,8 @@ async function process() {
         if (pos === 0) outPage = outDoc.addPage([page_w, page_h]);
         const col = pos % cols;
         const row = Math.floor(pos / cols);
-        const ox = page_margin + col * (tag_w + gap);
-        const oyTop = page_margin + row * (tag_h + gap);
+        const ox = page_margin_x + col * (tag_w + gap);
+        const oyTop = page_margin_y + row * (tag_h + gap);
         const tagBottomY = page_h - (oyTop + tag_h);
 
         outPage.drawRectangle({
@@ -323,20 +343,22 @@ async function process() {
           borderDashArray: [2, 2],
         });
 
-        const foldYFromTop = oyTop + staple_margin;
-        const foldYBottom = page_h - foldYFromTop;
-        outPage.drawLine({
-          start: { x: ox + 2, y: foldYBottom }, end: { x: ox + tag_w - 2, y: foldYBottom },
-          color: rgb(0.7, 0.7, 0.7), thickness: 0.5, dashArray: [1, 2],
-        });
+        if (stapleEnabled) {
+          const foldYFromTop = oyTop + staple_margin;
+          const foldYBottom = page_h - foldYFromTop;
+          outPage.drawLine({
+            start: { x: ox + 2, y: foldYBottom }, end: { x: ox + tag_w - 2, y: foldYBottom },
+            color: rgb(0.7, 0.7, 0.7), thickness: 0.5, dashArray: [1, 2],
+          });
 
-        const cx = ox + tag_w / 2;
-        const cyFromTop = oyTop + staple_margin_above;
-        const cyBottom = page_h - cyFromTop;
-        const r = 4.5;
-        outPage.drawEllipse({ x: cx, y: cyBottom, xScale: r, yScale: r, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
-        outPage.drawLine({ start: { x: cx - r - 2, y: cyBottom }, end: { x: cx + r + 2, y: cyBottom }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
-        outPage.drawLine({ start: { x: cx, y: cyBottom - r - 2 }, end: { x: cx, y: cyBottom + r + 2 }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
+          const cx = ox + tag_w / 2;
+          const cyFromTop = oyTop + staple_margin_above;
+          const cyBottom = page_h - cyFromTop;
+          const r = 4.5;
+          outPage.drawEllipse({ x: cx, y: cyBottom, xScale: r, yScale: r, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
+          outPage.drawLine({ start: { x: cx - r - 2, y: cyBottom }, end: { x: cx + r + 2, y: cyBottom }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
+          outPage.drawLine({ start: { x: cx, y: cyBottom - r - 2 }, end: { x: cx, y: cyBottom + r + 2 }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
+        }
 
         const destX = ox + side_margin;
         const destYTopOffset = oyTop + staple_margin;
