@@ -36,30 +36,52 @@
         <input type="checkbox" id="stapleEnabled">
         <span>ホチキスの目印を追加する</span>
       </label>
-      <label id="marginAboveRow">
-        <span>ホチキス上の余白</span>
-        <span class="stepper">
-          <button type="button" class="step-btn" data-target="marginAbove" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="marginAbove" value="8" min="2" max="35" step="1">
-          <button type="button" class="step-btn" data-target="marginAbove" data-step="1" aria-label="1mm増やす">＋</button>
-          <span class="unit">mm</span>
-        </span>
+      <label class="checkbox-row">
+        <input type="checkbox" id="detailedMargin">
+        <span>余白を上下左右で個別に設定する</span>
       </label>
-      <label id="marginBelowRow">
-        <span>ホチキス下の余白</span>
-        <span class="stepper">
-          <button type="button" class="step-btn" data-target="marginBelow" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="marginBelow" value="7" min="2" max="35" step="1">
-          <button type="button" class="step-btn" data-target="marginBelow" data-step="1" aria-label="1mm増やす">＋</button>
-          <span class="unit">mm</span>
-        </span>
-      </label>
-      <label>
+      <label id="marginUniformRow">
         <span>カードまわりの余白</span>
         <span class="stepper">
-          <button type="button" class="step-btn" data-target="cardMargin" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="cardMargin" value="3" min="0" max="15" step="1">
-          <button type="button" class="step-btn" data-target="cardMargin" data-step="1" aria-label="1mm増やす">＋</button>
+          <button type="button" class="step-btn" data-target="marginUniform" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginUniform" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginUniform" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginTopRow" hidden>
+        <span>上の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginTop" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginTop" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginTop" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginBottomRow" hidden>
+        <span>下の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginBottom" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginBottom" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginBottom" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginLeftRow" hidden>
+        <span>左の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginLeft" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginLeft" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginLeft" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginRightRow" hidden>
+        <span>右の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginRight" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginRight" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginRight" data-step="1" aria-label="1mm増やす">＋</button>
           <span class="unit">mm</span>
         </span>
       </label>
@@ -105,6 +127,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=25"></script>
+<script type="module" src="app.js?v=26"></script>
 </body>
 </html>
