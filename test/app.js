@@ -158,7 +158,22 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
-cutGuideEnabledInput.addEventListener("change", renderSchematic);
+function syncCardMarginToCutGuide() {
+  if (cutGuideEnabledInput.checked) {
+    // a guide drawn flush against the card's own edge (margin 0) sits
+    // mostly behind the opaque card image and is nearly invisible, so
+    // require at least 1mm whenever the guide is actually shown
+    cardMarginInput.min = "1";
+    if (numOr(cardMarginInput.value, 0) < 1) cardMarginInput.value = 1;
+  } else {
+    cardMarginInput.min = "0";
+  }
+}
+cutGuideEnabledInput.addEventListener("change", () => {
+  syncCardMarginToCutGuide();
+  renderSchematic();
+});
+syncCardMarginToCutGuide();
 stapleEnabledInput.addEventListener("change", renderSchematic);
 cardMarginInput.addEventListener("input", renderSchematic);
 marginAboveInput.addEventListener("input", renderSchematic);
