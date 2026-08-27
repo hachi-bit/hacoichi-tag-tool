@@ -153,8 +153,13 @@ h1 {
   min-width: 1.6em;
 }
 
-.detail-link {
-  display: block;
+/* overrides the generic "button, .download-btn" rule below (same specificity
+   tie on :hover, so this needs "button.detail-link" to win reliably) */
+button.detail-link {
+  display: inline-block;
+  appearance: none;
+  -webkit-appearance: none;
+  width: auto;
   border: none;
   background: none;
   padding: 0;
@@ -163,7 +168,10 @@ h1 {
   color: var(--bee-yellow-dark);
   text-decoration: underline;
   cursor: pointer;
-  text-align: left;
+}
+button.detail-link:hover,
+button.detail-link:focus-visible {
+  background: none;
 }
 .detail-panel-wrap {
   display: grid;
