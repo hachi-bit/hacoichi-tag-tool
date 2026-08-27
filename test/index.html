@@ -36,15 +36,6 @@
         <input type="checkbox" id="stapleEnabled">
         <span>ホチキスの目印を追加する</span>
       </label>
-      <label>
-        <span>カードまわりの余白</span>
-        <span class="stepper">
-          <button type="button" class="step-btn" data-target="cardMargin" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="cardMargin" value="3" min="0" max="15" step="1">
-          <button type="button" class="step-btn" data-target="cardMargin" data-step="1" aria-label="1mm増やす">＋</button>
-          <span class="unit">mm</span>
-        </span>
-      </label>
       <label id="marginAboveRow">
         <span>ホチキス上の余白</span>
         <span class="stepper">
@@ -60,6 +51,15 @@
           <button type="button" class="step-btn" data-target="marginBelow" data-step="-1" aria-label="1mm減らす">－</button>
           <input type="number" id="marginBelow" value="7" min="2" max="35" step="1">
           <button type="button" class="step-btn" data-target="marginBelow" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label>
+        <span>カードまわりの余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="cardMargin" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="cardMargin" value="3" min="0" max="15" step="1">
+          <button type="button" class="step-btn" data-target="cardMargin" data-step="1" aria-label="1mm増やす">＋</button>
           <span class="unit">mm</span>
         </span>
       </label>
@@ -105,6 +105,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=24"></script>
+<script type="module" src="app.js?v=25"></script>
 </body>
 </html>

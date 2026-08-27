@@ -450,7 +450,16 @@ async function process() {
           outPage.drawLine({ start: { x: left, y: bottom }, end: { x: right, y: bottom }, color: guideColor, thickness: guideWidth, dashArray });
         }
 
+        const destX = ox + side_margin;
+        const destYTopOffset = oyTop + staple_margin;
+        const destYBottom = page_h - (destYTopOffset + card_h);
+        outPage.drawPage(embedded, { x: destX, y: destYBottom, width: card_w, height: card_h });
+
         if (stapleEnabled) {
+          // the fold line sits exactly on the card's own top edge by
+          // definition (both are "oyTop + staple_margin"), so it has to be
+          // drawn after the card image or the card covers its middle
+          // section, leaving only the two end slivers visible
           const foldYFromTop = oyTop + staple_margin;
           const foldYBottom = page_h - foldYFromTop;
           outPage.drawLine({
@@ -466,11 +475,6 @@ async function process() {
           outPage.drawLine({ start: { x: cx - r - 2, y: cyBottom }, end: { x: cx + r + 2, y: cyBottom }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
           outPage.drawLine({ start: { x: cx, y: cyBottom - r - 2 }, end: { x: cx, y: cyBottom + r + 2 }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
         }
-
-        const destX = ox + side_margin;
-        const destYTopOffset = oyTop + staple_margin;
-        const destYBottom = page_h - (destYTopOffset + card_h);
-        outPage.drawPage(embedded, { x: destX, y: destYBottom, width: card_w, height: card_h });
 
         idx++;
       }
