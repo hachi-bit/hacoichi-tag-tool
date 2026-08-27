@@ -414,15 +414,27 @@ async function process() {
         const tagBottomY = page_h - (oyTop + tag_h);
 
         if (showCutGuide) {
-          // a [2,2]pt dash is too fine to read as "dashed" once a PDF
-          // viewer anti-aliases it down at typical zoom - it just looks
-          // like a thin solid line, especially where two tags' guides sit
-          // on the same shared edge. A coarser dash survives that.
-          outPage.drawRectangle({
-            x: ox, y: tagBottomY, width: tag_w, height: tag_h,
-            borderColor: rgb(0.5, 0.5, 0.5), borderWidth: 0.7,
-            borderDashArray: [4, 2.5],
-          });
+          const guideColor = rgb(0.5, 0.5, 0.5);
+          const guideWidth = 0.7;
+          const dashArray = [4, 2.5];
+          const left = ox, right = ox + tag_w;
+          const bottom = tagBottomY, top = tagBottomY + tag_h;
+          // when tags touch (gap 0) each tag drawing its own full rectangle
+          // means the shared edge between two neighbors gets drawn twice -
+          // once by each tag - which is redundant, not "a thicker line".
+          // Tags are filled left-to-right then top-to-bottom, so a tag's
+          // left/top neighbor (when gap is 0) has always already drawn that
+          // shared edge; only draw the two edges nothing else owns yet.
+          const skipLeft = col > 0 && gap === 0;
+          const skipTop = row > 0 && gap === 0;
+          if (!skipLeft) {
+            outPage.drawLine({ start: { x: left, y: bottom }, end: { x: left, y: top }, color: guideColor, thickness: guideWidth, dashArray });
+          }
+          if (!skipTop) {
+            outPage.drawLine({ start: { x: left, y: top }, end: { x: right, y: top }, color: guideColor, thickness: guideWidth, dashArray });
+          }
+          outPage.drawLine({ start: { x: right, y: bottom }, end: { x: right, y: top }, color: guideColor, thickness: guideWidth, dashArray });
+          outPage.drawLine({ start: { x: left, y: bottom }, end: { x: right, y: bottom }, color: guideColor, thickness: guideWidth, dashArray });
         }
 
         if (stapleEnabled) {
