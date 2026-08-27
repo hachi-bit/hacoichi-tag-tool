@@ -17,6 +17,7 @@ const processBtn = document.getElementById("processBtn");
 const previewArea = document.getElementById("previewArea");
 const previewPagesEl = document.getElementById("previewPages");
 const downloadLink = document.getElementById("downloadLink");
+const cutGuideEnabledInput = document.getElementById("cutGuideEnabled");
 const stapleEnabledInput = document.getElementById("stapleEnabled");
 const cardMarginInput = document.getElementById("cardMargin");
 const marginAboveRow = document.getElementById("marginAboveRow");
@@ -47,13 +48,14 @@ function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple) {
+function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple, showCutGuide) {
   const staple = showStaple
     ? `<div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
        <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>`
     : "";
+  const border = showCutGuide ? "1px dashed #b9b2a3" : "none";
   return `
-    <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;">
+    <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;border:${border};">
       ${staple}
       <div class="schem-card" style="left:${schemPx(cardMarginMm)}px; top:${schemPx(foldMm)}px; width:${schemPx(SCHEM_CARD_W_MM)}px; height:${schemPx(SCHEM_CARD_H_MM)}px;"></div>
     </div>
@@ -62,6 +64,7 @@ function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showS
 
 function renderSchematic() {
   const showStaple = stapleEnabledInput.checked;
+  const showCutGuide = cutGuideEnabledInput.checked;
   marginAboveRow.hidden = !showStaple;
   marginBelowRow.hidden = !showStaple;
   const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
@@ -73,7 +76,7 @@ function renderSchematic() {
   const foldMm = marginAboveMm + marginBelowMm;
   const tagWmm = cardMarginMm * 2 + SCHEM_CARD_W_MM;
   const tagHmm = foldMm + SCHEM_CARD_H_MM + cardMarginMm;
-  const tag = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple);
+  const tag = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple, showCutGuide);
   schematicPreview.innerHTML = `${tag}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag}`;
 }
 
@@ -112,6 +115,7 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
+cutGuideEnabledInput.addEventListener("change", renderSchematic);
 stapleEnabledInput.addEventListener("change", renderSchematic);
 cardMarginInput.addEventListener("input", renderSchematic);
 marginAboveInput.addEventListener("input", renderSchematic);
@@ -260,6 +264,7 @@ async function process() {
   processBtn.disabled = true;
   setProcessStatus("タグPDFを作成しています…", null);
 
+  const showCutGuide = cutGuideEnabledInput.checked;
   const stapleEnabled = stapleEnabledInput.checked;
   const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
   // without a staple mark there's no special top region to reserve - just
@@ -339,11 +344,13 @@ async function process() {
         const oyTop = page_margin_y + row * (tag_h + gap);
         const tagBottomY = page_h - (oyTop + tag_h);
 
-        outPage.drawRectangle({
-          x: ox, y: tagBottomY, width: tag_w, height: tag_h,
-          borderColor: rgb(0.55, 0.55, 0.55), borderWidth: 0.6,
-          borderDashArray: [2, 2],
-        });
+        if (showCutGuide) {
+          outPage.drawRectangle({
+            x: ox, y: tagBottomY, width: tag_w, height: tag_h,
+            borderColor: rgb(0.55, 0.55, 0.55), borderWidth: 0.6,
+            borderDashArray: [2, 2],
+          });
+        }
 
         if (stapleEnabled) {
           const foldYFromTop = oyTop + staple_margin;
