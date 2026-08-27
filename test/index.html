@@ -36,6 +36,15 @@
         <input type="checkbox" id="stapleEnabled">
         <span>ホチキスの目印を追加する</span>
       </label>
+      <label id="stapleMarginRow" hidden>
+        <span>ホチキスの余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="stapleMargin" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="stapleMargin" value="15" min="8" max="50" step="1">
+          <button type="button" class="step-btn" data-target="stapleMargin" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
       <label class="checkbox-row">
         <input type="checkbox" id="detailedMargin">
         <span>余白を上下左右で個別に設定する</span>
@@ -127,6 +136,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=26"></script>
+<script type="module" src="app.js?v=27"></script>
 </body>
 </html>
