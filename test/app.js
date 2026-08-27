@@ -25,6 +25,7 @@ const stapleAboveRow = document.getElementById("stapleAboveRow");
 const stapleBelowRow = document.getElementById("stapleBelowRow");
 const stapleAboveInput = document.getElementById("stapleAbove");
 const stapleBelowInput = document.getElementById("stapleBelow");
+const cardScaleInput = document.getElementById("cardScale");
 const cardTrimInput = document.getElementById("cardTrim");
 const detailedMarginInput = document.getElementById("detailedMargin");
 const marginUniformRow = document.getElementById("marginUniformRow");
@@ -159,6 +160,12 @@ function syncMarginRequirements() {
   }
 }
 
+// >=1; a scale below 100% isn't offered here since shrinking the card
+// serves no real purpose and just wastes resolution
+function getCardScale() {
+  return Math.max(1, numOr(cardScaleInput.value, 100) / 100);
+}
+
 function renderSchematic() {
   const showStaple = stapleEnabledInput.checked;
   const showCutGuide = cutGuideEnabledInput.checked;
@@ -167,13 +174,14 @@ function renderSchematic() {
   const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
   const gapMm = Math.max(0, numOr(gapMmInput.value, 0));
   const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
+  const cardScale = getCardScale();
 
   let cardWmm = SCHEM_CARD_W_MM;
   let cardHmm = SCHEM_CARD_H_MM;
   let cardImgSrc = null;
   if (trimPreviewSource) {
-    cardWmm = Math.max(4, trimPreviewCardWpt / MM - 2 * cardTrimMm);
-    cardHmm = Math.max(4, trimPreviewCardHpt / MM - 2 * cardTrimMm);
+    cardWmm = Math.max(4, trimPreviewCardWpt / MM - 2 * cardTrimMm) * cardScale;
+    cardHmm = Math.max(4, trimPreviewCardHpt / MM - 2 * cardTrimMm) * cardScale;
     cardImgSrc = cropTrimPreview(cardTrimMm);
   }
 
@@ -277,6 +285,7 @@ marginLeftInput.addEventListener("input", renderSchematic);
 marginRightInput.addEventListener("input", renderSchematic);
 gapMmInput.addEventListener("input", renderSchematic);
 cardTrimInput.addEventListener("input", renderSchematic);
+cardScaleInput.addEventListener("input", renderSchematic);
 renderSchematic();
 
 // upload/detection messages go next to the dropzone; conversion messages go
@@ -442,6 +451,7 @@ async function process() {
   const { top: topMm, bottom: bottomMm, left: leftMm, right: rightMm } = getMargins();
   const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
   const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
+  const cardScale = getCardScale();
   const gapMm = numOr(gapMmInput.value, 0);
 
   const totalCards = allCardsByPage.reduce(
@@ -475,8 +485,8 @@ async function process() {
   // card is still drawn at its own true size below, so nothing gets
   // stretched or squished to fit
   const allCards = allCardsByPage.flatMap((p) => p.cards);
-  const maxCardW = Math.max(...allCards.map((c) => Math.max(1, c.x1 - c.x0 - 2 * trim)));
-  const maxCardH = Math.max(...allCards.map((c) => Math.max(1, c.bottom - c.top - 2 * trim)));
+  const maxCardW = Math.max(...allCards.map((c) => Math.max(1, c.x1 - c.x0 - 2 * trim) * cardScale));
+  const maxCardH = Math.max(...allCards.map((c) => Math.max(1, c.bottom - c.top - 2 * trim) * cardScale));
   const tag_w = left_margin + maxCardW + right_margin;
   const tag_h = card_top_offset + maxCardH + bottom_margin;
 
@@ -505,8 +515,10 @@ async function process() {
       // rather than just covered up
       const cropX0 = c.x0 + trim, cropX1 = c.x1 - trim;
       const cropTop = c.top + trim, cropBottom = c.bottom - trim;
-      const card_w = Math.max(1, cropX1 - cropX0);
-      const card_h = Math.max(1, cropBottom - cropTop);
+      // the embed's source crop box stays at its real (unscaled) size -
+      // only how large it's drawn on the output page is scaled up
+      const card_w = Math.max(1, cropX1 - cropX0) * cardScale;
+      const card_h = Math.max(1, cropBottom - cropTop) * cardScale;
       // embedding is the same regardless of how many times this card repeats
       const embedded = await outDoc.embedPage(srcPage, {
         left: cropX0, right: cropX1,

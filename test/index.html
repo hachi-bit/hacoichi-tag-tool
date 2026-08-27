@@ -36,6 +36,10 @@
         <input type="checkbox" id="stapleEnabled">
         <span>ホチキスの目印を追加する</span>
       </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="detailedMargin">
+        <span>余白を個別に設定する</span>
+      </label>
       <label id="stapleMarginRow" hidden>
         <span>ホチキスの余白</span>
         <span class="stepper">
@@ -62,10 +66,6 @@
           <button type="button" class="step-btn" data-target="stapleBelow" data-step="1" aria-label="1mm増やす">＋</button>
           <span class="unit">mm</span>
         </span>
-      </label>
-      <label class="checkbox-row">
-        <input type="checkbox" id="detailedMargin">
-        <span>余白を上下左右で個別に設定する</span>
       </label>
       <label id="marginUniformRow">
         <span>カードまわりの余白</span>
@@ -123,6 +123,16 @@
       </label>
 
       <label>
+        <span>カードの拡大率</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="cardScale" data-step="-5" aria-label="5%減らす">－</button>
+          <input type="number" id="cardScale" value="100" min="100" max="300" step="5">
+          <button type="button" class="step-btn" data-target="cardScale" data-step="5" aria-label="5%増やす">＋</button>
+          <span class="unit">%</span>
+        </span>
+      </label>
+      <p class="schematic-label" style="margin-top: -8px;">タグ自体が小さいと感じる場合に、カード（バーコードや文字）を拡大できます。大きくするほどタグ全体のサイズも一緒に大きくなります。</p>
+      <label>
         <span>カードのふちを削る</span>
         <span class="stepper">
           <button type="button" class="step-btn" data-target="cardTrim" data-step="-1" aria-label="1mm減らす">－</button>
@@ -154,6 +164,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=28"></script>
+<script type="module" src="app.js?v=29"></script>
 </body>
 </html>
