@@ -188,7 +188,6 @@ h1 {
 .schem-card {
   position: absolute;
   background: repeating-linear-gradient(45deg, #ece8dd, #ece8dd 4px, #f7f5ef 4px, #f7f5ef 8px);
-  border: 1px solid var(--gray-line);
   border-radius: 2px;
   transition: top 0.12s ease;
 }
