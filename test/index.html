@@ -44,6 +44,16 @@
           <span class="unit">mm</span>
         </span>
       </label>
+      <label>
+        <span>カードのふちを削る</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="cardTrim" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="cardTrim" value="0" min="0" max="5" step="1">
+          <button type="button" class="step-btn" data-target="cardTrim" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <p class="schematic-label" style="margin-top: -8px;">商品カード自体の枠線が消えるまで少しずつ増やしてください。増やしすぎると文字やバーコードも一緒に切れてしまうので、変換後のプレビューで確認しながら調整してください。</p>
       <label id="marginAboveRow">
         <span>ホチキス上の余白</span>
         <span class="stepper">
@@ -93,6 +103,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>

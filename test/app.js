@@ -20,6 +20,7 @@ const downloadLink = document.getElementById("downloadLink");
 const cutGuideEnabledInput = document.getElementById("cutGuideEnabled");
 const stapleEnabledInput = document.getElementById("stapleEnabled");
 const cardMarginInput = document.getElementById("cardMargin");
+const cardTrimInput = document.getElementById("cardTrim");
 const marginAboveRow = document.getElementById("marginAboveRow");
 const marginBelowRow = document.getElementById("marginBelowRow");
 const marginAboveInput = document.getElementById("marginAbove");
@@ -267,6 +268,7 @@ async function process() {
   const showCutGuide = cutGuideEnabledInput.checked;
   const stapleEnabled = stapleEnabledInput.checked;
   const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
+  const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 0));
   // without a staple mark there's no special top region to reserve - just
   // give the card the same margin on every side as the rest of the tag
   const marginAboveMm = stapleEnabled ? numOr(marginAboveInput.value, 8) : cardMarginMm;
@@ -293,6 +295,7 @@ async function process() {
   const bottom_margin = cardMarginMm * MM;
   const side_margin = cardMarginMm * MM;
   const gap = gapMm * MM;
+  const trim = cardTrimMm * MM; // shaves the source card's own border off by cropping it out of the embed
   const min_page_margin = 3 * MM; // printer-safe minimum, not a fixed layout margin
   const page_w = 595.0, page_h = 842.0; // A4
 
@@ -302,8 +305,8 @@ async function process() {
   // card is still drawn at its own true size below, so nothing gets
   // stretched or squished to fit
   const allCards = allCardsByPage.flatMap((p) => p.cards);
-  const maxCardW = Math.max(...allCards.map((c) => c.x1 - c.x0));
-  const maxCardH = Math.max(...allCards.map((c) => c.bottom - c.top));
+  const maxCardW = Math.max(...allCards.map((c) => Math.max(1, c.x1 - c.x0 - 2 * trim)));
+  const maxCardH = Math.max(...allCards.map((c) => Math.max(1, c.bottom - c.top - 2 * trim)));
   const tag_w = side_margin * 2 + maxCardW;
   const tag_h = staple_margin + maxCardH + bottom_margin;
 
@@ -327,12 +330,17 @@ async function process() {
       const count = Math.max(0, Math.round(numOr(document.getElementById(c.countInputId).value, 1)));
       if (count === 0) continue;
 
-      const card_w = c.x1 - c.x0;
-      const card_h = c.bottom - c.top;
+      // crop the trim amount off each edge before embedding, so the source
+      // card's own border (baked into its vector artwork) is cropped away
+      // rather than just covered up
+      const cropX0 = c.x0 + trim, cropX1 = c.x1 - trim;
+      const cropTop = c.top + trim, cropBottom = c.bottom - trim;
+      const card_w = Math.max(1, cropX1 - cropX0);
+      const card_h = Math.max(1, cropBottom - cropTop);
       // embedding is the same regardless of how many times this card repeats
       const embedded = await outDoc.embedPage(srcPage, {
-        left: c.x0, right: c.x1,
-        top: pageHeight - c.top, bottom: pageHeight - c.bottom,
+        left: cropX0, right: cropX1,
+        top: pageHeight - cropTop, bottom: pageHeight - cropBottom,
       });
 
       for (let n = 0; n < count; n++) {
