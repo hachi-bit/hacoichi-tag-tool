@@ -169,9 +169,9 @@ async function handleFile(file) {
 
   try {
     allCardsByPage = await detectCards();
-    renderCardsList();
     cardsSectionEl.hidden = false;
     optionsEl.hidden = false;
+    renderCardsList(); // needs the section visible first, so the thumbnails have a real clientWidth for the trim overlay
     const totalCards = allCardsByPage.reduce((s, p) => s + p.cards.length, 0);
     setStatus(`${totalCards}件のタグを検出しました。枚数と設定を確認して「変換する」を押してください。`, "ok");
   } catch (err) {
@@ -237,7 +237,10 @@ function renderCardsList() {
       c.countInputId = `cardCount${idx}`;
       items.push(`
         <div class="card-item">
-          <img class="card-thumb" src="${c.thumbUrl}" alt="検出したタグ ${idx + 1}">
+          <div class="card-thumb-wrap">
+            <img class="card-thumb" src="${c.thumbUrl}" alt="検出したタグ ${idx + 1}">
+            <div class="trim-overlay" data-w-pt="${(c.x1 - c.x0).toFixed(3)}"></div>
+          </div>
           <span class="stepper">
             <button type="button" class="step-btn" data-target="${c.countInputId}" data-step="-1" aria-label="1枚減らす">－</button>
             <input type="number" id="${c.countInputId}" value="1" min="0" max="50" step="1">
@@ -250,7 +253,26 @@ function renderCardsList() {
     }
   }
   cardsListEl.innerHTML = items.join("");
+  updateCardTrimOverlay();
 }
+
+// tints the outer band that "カードのふちを削る" will crop away in red,
+// directly on the real card thumbnails above, so the effect of that mm
+// value is visible immediately instead of only after converting
+function updateCardTrimOverlay() {
+  const trimMm = Math.max(0, numOr(cardTrimInput.value, 2));
+  const trimPt = trimMm * MM;
+  cardsListEl.querySelectorAll(".trim-overlay").forEach((el) => {
+    const wPt = parseFloat(el.dataset.wPt);
+    if (!wPt || trimMm <= 0) {
+      el.style.boxShadow = "none";
+      return;
+    }
+    const px = (trimPt / wPt) * el.clientWidth;
+    el.style.boxShadow = `inset 0 0 0 ${px.toFixed(1)}px rgba(214,64,64,0.55)`;
+  });
+}
+cardTrimInput.addEventListener("input", updateCardTrimOverlay);
 
 processBtn.addEventListener("click", () => {
   if (!currentFileBytes || !allCardsByPage) return;
@@ -268,7 +290,7 @@ async function process() {
   const showCutGuide = cutGuideEnabledInput.checked;
   const stapleEnabled = stapleEnabledInput.checked;
   const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
-  const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 0));
+  const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
   // without a staple mark there's no special top region to reserve - just
   // give the card the same margin on every side as the rest of the tag
   const marginAboveMm = stapleEnabled ? numOr(marginAboveInput.value, 8) : cardMarginMm;

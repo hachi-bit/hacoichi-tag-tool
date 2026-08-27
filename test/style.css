@@ -213,12 +213,23 @@ h1 {
   background: #f6f4ee;
   width: 160px;
 }
+.card-thumb-wrap {
+  position: relative;
+  width: 100%;
+}
 .card-thumb {
   width: 100%;
   height: auto;
+  display: block;
   border: 1px solid var(--gray-line);
   border-radius: 4px;
   background: #fff;
+}
+.trim-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  pointer-events: none;
 }
 .card-item .stepper { justify-content: center; }
 .card-item .unit { min-width: 1.4em; }
