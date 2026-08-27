@@ -18,6 +18,7 @@ const previewArea = document.getElementById("previewArea");
 const previewPagesEl = document.getElementById("previewPages");
 const downloadLink = document.getElementById("downloadLink");
 const stapleEnabledInput = document.getElementById("stapleEnabled");
+const cardMarginInput = document.getElementById("cardMargin");
 const marginAboveRow = document.getElementById("marginAboveRow");
 const marginBelowRow = document.getElementById("marginBelowRow");
 const marginAboveInput = document.getElementById("marginAbove");
@@ -41,14 +42,12 @@ function numOr(value, fallback) {
 const SCHEM_PX_PER_MM = 3.6;
 const SCHEM_CARD_W_MM = 42;
 const SCHEM_CARD_H_MM = 25;
-const SCHEM_SIDE_MARGIN_MM = 3;
-const SCHEM_BOTTOM_MARGIN_MM = 3;
 
 function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm, showStaple) {
+function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple) {
   const staple = showStaple
     ? `<div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
        <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>`
@@ -56,7 +55,7 @@ function schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm, showStaple) {
   return `
     <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;">
       ${staple}
-      <div class="schem-card" style="left:${schemPx(SCHEM_SIDE_MARGIN_MM)}px; top:${schemPx(foldMm)}px; width:${schemPx(SCHEM_CARD_W_MM)}px; height:${schemPx(SCHEM_CARD_H_MM)}px;"></div>
+      <div class="schem-card" style="left:${schemPx(cardMarginMm)}px; top:${schemPx(foldMm)}px; width:${schemPx(SCHEM_CARD_W_MM)}px; height:${schemPx(SCHEM_CARD_H_MM)}px;"></div>
     </div>
   `;
 }
@@ -65,15 +64,16 @@ function renderSchematic() {
   const showStaple = stapleEnabledInput.checked;
   marginAboveRow.hidden = !showStaple;
   marginBelowRow.hidden = !showStaple;
+  const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
   // without a staple mark there's no special top region to reserve - just
   // give the card the same small margin on every side
-  const marginAboveMm = showStaple ? numOr(marginAboveInput.value, 0) : SCHEM_BOTTOM_MARGIN_MM;
+  const marginAboveMm = showStaple ? numOr(marginAboveInput.value, 0) : cardMarginMm;
   const marginBelowMm = showStaple ? numOr(marginBelowInput.value, 0) : 0;
   const gapMm = Math.max(0, numOr(gapMmInput.value, 0));
   const foldMm = marginAboveMm + marginBelowMm;
-  const tagWmm = SCHEM_SIDE_MARGIN_MM * 2 + SCHEM_CARD_W_MM;
-  const tagHmm = foldMm + SCHEM_CARD_H_MM + SCHEM_BOTTOM_MARGIN_MM;
-  const tag = schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm, showStaple);
+  const tagWmm = cardMarginMm * 2 + SCHEM_CARD_W_MM;
+  const tagHmm = foldMm + SCHEM_CARD_H_MM + cardMarginMm;
+  const tag = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple);
   schematicPreview.innerHTML = `${tag}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag}`;
 }
 
@@ -113,6 +113,7 @@ document.addEventListener("pointerdown", (e) => {
 });
 
 stapleEnabledInput.addEventListener("change", renderSchematic);
+cardMarginInput.addEventListener("input", renderSchematic);
 marginAboveInput.addEventListener("input", renderSchematic);
 marginBelowInput.addEventListener("input", renderSchematic);
 gapMmInput.addEventListener("input", renderSchematic);
@@ -260,9 +261,10 @@ async function process() {
   setProcessStatus("タグPDFを作成しています…", null);
 
   const stapleEnabled = stapleEnabledInput.checked;
+  const cardMarginMm = Math.max(0, numOr(cardMarginInput.value, 3));
   // without a staple mark there's no special top region to reserve - just
-  // give the card the same small margin on every side (matches bottom_margin)
-  const marginAboveMm = stapleEnabled ? numOr(marginAboveInput.value, 8) : 3;
+  // give the card the same margin on every side as the rest of the tag
+  const marginAboveMm = stapleEnabled ? numOr(marginAboveInput.value, 8) : cardMarginMm;
   const marginBelowMm = stapleEnabled ? numOr(marginBelowInput.value, 7) : 0;
   const gapMm = numOr(gapMmInput.value, 0);
 
@@ -283,8 +285,8 @@ async function process() {
   const staple_margin_above = marginAboveMm * MM;
   const staple_margin_below = marginBelowMm * MM;
   const staple_margin = staple_margin_above + staple_margin_below;
-  const bottom_margin = 3 * MM;
-  const side_margin = 3 * MM;
+  const bottom_margin = cardMarginMm * MM;
+  const side_margin = cardMarginMm * MM;
   const gap = gapMm * MM;
   const min_page_margin = 3 * MM; // printer-safe minimum, not a fixed layout margin
   const page_w = 595.0, page_h = 842.0; // A4
