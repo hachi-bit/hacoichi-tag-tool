@@ -21,6 +21,10 @@ const cutGuideEnabledInput = document.getElementById("cutGuideEnabled");
 const stapleEnabledInput = document.getElementById("stapleEnabled");
 const stapleMarginRow = document.getElementById("stapleMarginRow");
 const stapleMarginInput = document.getElementById("stapleMargin");
+const stapleAboveRow = document.getElementById("stapleAboveRow");
+const stapleBelowRow = document.getElementById("stapleBelowRow");
+const stapleAboveInput = document.getElementById("stapleAbove");
+const stapleBelowInput = document.getElementById("stapleBelow");
 const cardTrimInput = document.getElementById("cardTrim");
 const detailedMarginInput = document.getElementById("detailedMargin");
 const marginUniformRow = document.getElementById("marginUniformRow");
@@ -60,13 +64,13 @@ function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, leftMm, cardTopMm, stapleAreaMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, skipLeftBorder) {
+function schemTagHtml(tagWmm, tagHmm, leftMm, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, skipLeftBorder) {
   // the staple flap is its own space above the card's regular top margin,
   // not the top margin itself - fold line at the flap's own edge, crosshair
-  // centered within the flap
+  // at its configured (or centered) position within the flap
   const staple = showStaple
     ? `<div class="schem-fold" style="top:${schemPx(stapleAreaMm)}px;"></div>
-       <div class="schem-cross" style="top:${schemPx(stapleAreaMm / 2)}px;">⊕</div>`
+       <div class="schem-cross" style="top:${schemPx(stapleCrossMm)}px;">⊕</div>`
     : "";
   const border = showCutGuide ? "1px dashed #b9b2a3" : "none";
   // when the two illustrated tags are touching (gap 0), the second one
@@ -124,9 +128,16 @@ function getMargins() {
   return { top: v, bottom: v, left: v, right: v };
 }
 
-function getStapleAreaMm() {
-  if (!stapleEnabledInput.checked) return 0;
-  return Math.max(STAPLE_MIN_MM, numOr(stapleMarginInput.value, 15));
+// { area: total flap height, cross: crosshair position from the flap's top }
+function getStapleGeometry() {
+  if (!stapleEnabledInput.checked) return { area: 0, cross: 0 };
+  if (detailedMarginInput.checked) {
+    const above = Math.max(0, numOr(stapleAboveInput.value, 8));
+    const below = Math.max(0, numOr(stapleBelowInput.value, 7));
+    return { area: above + below, cross: above };
+  }
+  const area = Math.max(STAPLE_MIN_MM, numOr(stapleMarginInput.value, 15));
+  return { area, cross: area / 2 };
 }
 
 // keeps the min= on each margin stepper (and the actual value, snapped up
@@ -153,7 +164,7 @@ function renderSchematic() {
   const showCutGuide = cutGuideEnabledInput.checked;
   syncMarginRequirements();
   const { top, bottom, left, right } = getMargins();
-  const stapleAreaMm = getStapleAreaMm();
+  const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
   const gapMm = Math.max(0, numOr(gapMmInput.value, 0));
   const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
 
@@ -169,8 +180,8 @@ function renderSchematic() {
   const cardTopMm = stapleAreaMm + top;
   const tagWmm = left + cardWmm + right;
   const tagHmm = cardTopMm + cardHmm + bottom;
-  const tag1 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, false);
-  const tag2 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, gapMm === 0);
+  const tag1 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, false);
+  const tag2 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, gapMm === 0);
   schematicPreview.innerHTML = `${tag1}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag2}`;
 }
 
@@ -209,16 +220,27 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
+// the staple flap fields' visibility depends on BOTH whether staple is on
+// and whether detailed mode is on, so it's recomputed from both handlers
+function updateStapleRowVisibility() {
+  const on = stapleEnabledInput.checked;
+  const detailed = detailedMarginInput.checked;
+  stapleMarginRow.hidden = !on || detailed;
+  stapleAboveRow.hidden = !on || !detailed;
+  stapleBelowRow.hidden = !on || !detailed;
+}
+
 cutGuideEnabledInput.addEventListener("change", renderSchematic);
 stapleEnabledInput.addEventListener("change", () => {
-  const on = stapleEnabledInput.checked;
-  stapleMarginRow.hidden = !on;
-  if (on && numOr(stapleMarginInput.value, 0) < STAPLE_MIN_MM) {
+  updateStapleRowVisibility();
+  if (stapleEnabledInput.checked && numOr(stapleMarginInput.value, 0) < STAPLE_MIN_MM) {
     stapleMarginInput.value = STAPLE_MIN_MM;
   }
   renderSchematic();
 });
 stapleMarginInput.addEventListener("input", renderSchematic);
+stapleAboveInput.addEventListener("input", renderSchematic);
+stapleBelowInput.addEventListener("input", renderSchematic);
 detailedMarginInput.addEventListener("change", () => {
   const detailed = detailedMarginInput.checked;
   marginUniformRow.hidden = detailed;
@@ -234,7 +256,18 @@ detailedMarginInput.addEventListener("change", () => {
     marginBottomInput.value = v;
     marginLeftInput.value = v;
     marginRightInput.value = v;
+    // split the staple flap's single value into above/below, keeping the
+    // same total height so the tag doesn't jump when switching modes
+    const total = Math.max(0, numOr(stapleMarginInput.value, 15));
+    const above = Math.round(total / 2);
+    stapleAboveInput.value = above;
+    stapleBelowInput.value = total - above;
+  } else {
+    // merge above/below back into the single value, same total
+    const total = Math.max(0, numOr(stapleAboveInput.value, 8)) + Math.max(0, numOr(stapleBelowInput.value, 7));
+    stapleMarginInput.value = total;
   }
+  updateStapleRowVisibility();
   renderSchematic();
 });
 marginUniformInput.addEventListener("input", renderSchematic);
@@ -407,7 +440,7 @@ async function process() {
   const stapleEnabled = stapleEnabledInput.checked;
   syncMarginRequirements();
   const { top: topMm, bottom: bottomMm, left: leftMm, right: rightMm } = getMargins();
-  const stapleAreaMm = getStapleAreaMm();
+  const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
   const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
   const gapMm = numOr(gapMmInput.value, 0);
 
@@ -531,9 +564,11 @@ async function process() {
             color: rgb(0.7, 0.7, 0.7), thickness: 0.5, dashArray: [1, 2],
           });
 
-          // crosshair sits centered within the staple flap itself
+          // crosshair sits at its configured position within the staple
+          // flap (centered in simple mode, or the exact 上/下 split in
+          // detailed mode)
           const cx = ox + tag_w / 2;
-          const cyFromTop = oyTop + staple_area / 2;
+          const cyFromTop = oyTop + stapleCrossMm * MM;
           const cyBottom = page_h - cyFromTop;
           const r = 4.5;
           outPage.drawEllipse({ x: cx, y: cyBottom, xScale: r, yScale: r, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
