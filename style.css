@@ -83,6 +83,24 @@ h1 {
   margin-bottom: 12px;
   font-size: 0.92rem;
 }
+.options label[hidden] {
+  /* the display:flex above wins over the UA [hidden]{display:none} rule
+     (author styles beat UA styles regardless of specificity), so restate
+     it explicitly here for rows toggled via the hidden attribute */
+  display: none;
+}
+.checkbox-row {
+  justify-content: flex-start !important;
+  gap: 10px !important;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--bee-yellow-dark);
+  cursor: pointer;
+}
+
 .options input[type="number"] {
   width: 52px;
   padding: 6px 4px;
@@ -125,7 +143,51 @@ h1 {
 }
 .step-btn:hover { background: #f1efe8; }
 .step-btn:active { background: #e5e1d6; }
-.unit { color: #6b6152; font-size: 0.85rem; }
+.unit {
+  color: #6b6152;
+  font-size: 0.85rem;
+  /* fixed width regardless of the unit text ("mm" vs "%" etc.), so the
+     stepper's overall width - and therefore the -/+ buttons' position -
+     stays identical across rows instead of shifting with the label */
+  display: inline-block;
+  min-width: 1.6em;
+}
+
+.label-with-detail {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+}
+/* overrides the generic "button, .download-btn" rule below (same specificity
+   tie on :hover, so this needs "button.detail-link" to win reliably) */
+button.detail-link {
+  display: inline-block;
+  appearance: none;
+  -webkit-appearance: none;
+  width: auto;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--bee-yellow-dark);
+  text-decoration: underline;
+  cursor: pointer;
+}
+button.detail-link:hover,
+button.detail-link:focus-visible {
+  background: none;
+}
+.detail-panel-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+}
+.detail-panel-wrap.open { grid-template-rows: 1fr; }
+.detail-panel-inner { overflow: hidden; }
+.detail-panel-inner .schematic-label { margin: 0 0 12px; }
 
 .schematic { margin: 4px 0 16px; }
 .schematic-label {
@@ -157,6 +219,10 @@ h1 {
   right: 2px;
   border-top: 1px dashed #b9b2a3;
   transition: top 0.12s ease;
+  /* sits at the same y as the card's own top edge by design (like the
+     real PDF's fold line), so it needs to stay above .schem-card - it's
+     inserted before it in the markup and would otherwise be covered */
+  z-index: 1;
 }
 .schem-cross {
   position: absolute;
@@ -166,11 +232,11 @@ h1 {
   font-size: 15px;
   line-height: 1;
   transition: top 0.12s ease;
+  z-index: 1;
 }
 .schem-card {
   position: absolute;
   background: repeating-linear-gradient(45deg, #ece8dd, #ece8dd 4px, #f7f5ef 4px, #f7f5ef 8px);
-  border: 1px solid var(--gray-line);
   border-radius: 2px;
   transition: top 0.12s ease;
 }
@@ -254,10 +320,33 @@ footer {
 
 .usage-link {
   display: inline-block;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  margin-right: 16px;
   font-size: 0.85rem;
   color: var(--bee-black);
   text-decoration: underline;
+}
+
+.changelog {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 24px 0 32px;
+}
+.changelog-entry h2 {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+  color: #6b6152;
+}
+.changelog-entry ul {
+  margin: 0;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.changelog-entry li {
+  line-height: 1.6;
 }
 
 .guide-steps {

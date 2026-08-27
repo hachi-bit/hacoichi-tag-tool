@@ -11,13 +11,33 @@ const RENDER_SCALE = 4; // render resolution multiplier for card detection
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 const statusEl = document.getElementById("status");
+const processStatusEl = document.getElementById("processStatus");
 const optionsEl = document.getElementById("options");
 const processBtn = document.getElementById("processBtn");
 const previewArea = document.getElementById("previewArea");
 const previewPagesEl = document.getElementById("previewPages");
 const downloadLink = document.getElementById("downloadLink");
-const marginAboveInput = document.getElementById("marginAbove");
-const marginBelowInput = document.getElementById("marginBelow");
+const cutGuideEnabledInput = document.getElementById("cutGuideEnabled");
+const stapleEnabledInput = document.getElementById("stapleEnabled");
+const stapleMarginRow = document.getElementById("stapleMarginRow");
+const stapleMarginInput = document.getElementById("stapleMargin");
+const stapleAboveRow = document.getElementById("stapleAboveRow");
+const stapleBelowRow = document.getElementById("stapleBelowRow");
+const stapleAboveInput = document.getElementById("stapleAbove");
+const stapleBelowInput = document.getElementById("stapleBelow");
+const cardScaleInput = document.getElementById("cardScale");
+const cardTrimInput = document.getElementById("cardTrim");
+const detailedMarginInput = document.getElementById("detailedMargin");
+const marginUniformRow = document.getElementById("marginUniformRow");
+const marginTopRow = document.getElementById("marginTopRow");
+const marginBottomRow = document.getElementById("marginBottomRow");
+const marginLeftRow = document.getElementById("marginLeftRow");
+const marginRightRow = document.getElementById("marginRightRow");
+const marginUniformInput = document.getElementById("marginUniform");
+const marginTopInput = document.getElementById("marginTop");
+const marginBottomInput = document.getElementById("marginBottom");
+const marginLeftInput = document.getElementById("marginLeft");
+const marginRightInput = document.getElementById("marginRight");
 const gapMmInput = document.getElementById("gapMm");
 const schematicPreview = document.getElementById("schematicPreview");
 const cardsSectionEl = document.getElementById("cardsSection");
@@ -25,6 +45,9 @@ const cardsListEl = document.getElementById("cardsList");
 
 let currentFileBytes = null;
 let allCardsByPage = null; // detection result for the current file, cached so re-clicking "変換する" doesn't re-detect
+let trimPreviewSource = null; // a real, uncropped raster of one detected card, shown in the schematic in place of the placeholder
+let trimPreviewCardWpt = 0;
+let trimPreviewCardHpt = 0;
 
 // parseFloat(...) || fallback would wrongly replace a legitimate 0 with the
 // fallback (0 is falsy), so check for a finite number instead.
@@ -37,32 +60,137 @@ function numOr(value, fallback) {
 const SCHEM_PX_PER_MM = 3.6;
 const SCHEM_CARD_W_MM = 42;
 const SCHEM_CARD_H_MM = 25;
-const SCHEM_SIDE_MARGIN_MM = 3;
-const SCHEM_BOTTOM_MARGIN_MM = 3;
 
 function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm) {
+function schemTagHtml(tagWmm, tagHmm, leftMm, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, skipLeftBorder) {
+  // the staple flap is its own space above the card's regular top margin,
+  // not the top margin itself - fold line at the flap's own edge, crosshair
+  // at its configured (or centered) position within the flap
+  const staple = showStaple
+    ? `<div class="schem-fold" style="top:${schemPx(stapleAreaMm)}px;"></div>
+       <div class="schem-cross" style="top:${schemPx(stapleCrossMm)}px;">⊕</div>`
+    : "";
+  const border = showCutGuide ? "1px dashed #b9b2a3" : "none";
+  // when the two illustrated tags are touching (gap 0), the second one
+  // skips its own left border - otherwise its left edge and the first
+  // tag's right edge sit on the exact same line and visually double up,
+  // same as the real cut guide used to before that got the same fix
+  const borderStyle = skipLeftBorder
+    ? `border-top:${border}; border-right:${border}; border-bottom:${border}; border-left:none;`
+    : `border:${border};`;
+  // once a real card is detected, show it (cropped by the current trim)
+  // instead of the generic hatched placeholder
+  const cardStyle = cardImgSrc
+    ? `background-image:url(${cardImgSrc}); background-size:cover; background-position:center; background-repeat:no-repeat;`
+    : "";
   return `
-    <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;">
-      <div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
-      <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>
-      <div class="schem-card" style="left:${schemPx(SCHEM_SIDE_MARGIN_MM)}px; top:${schemPx(foldMm)}px; width:${schemPx(SCHEM_CARD_W_MM)}px; height:${schemPx(SCHEM_CARD_H_MM)}px;"></div>
+    <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;${borderStyle}">
+      ${staple}
+      <div class="schem-card" style="left:${schemPx(leftMm)}px; top:${schemPx(cardTopMm)}px; width:${schemPx(cardWmm)}px; height:${schemPx(cardHmm)}px; ${cardStyle}"></div>
     </div>
   `;
 }
 
+// offscreen canvas used only to crop the real reference card at the current
+// trim amount for the schematic preview below
+const trimCropCanvas = document.createElement("canvas");
+function cropTrimPreview(trimMm) {
+  const trimPx = trimMm * MM * RENDER_SCALE;
+  const sw = Math.max(1, trimPreviewSource.width - 2 * trimPx);
+  const sh = Math.max(1, trimPreviewSource.height - 2 * trimPx);
+  const sx = Math.min(trimPx, trimPreviewSource.width / 2);
+  const sy = Math.min(trimPx, trimPreviewSource.height / 2);
+  trimCropCanvas.width = sw;
+  trimCropCanvas.height = sh;
+  trimCropCanvas.getContext("2d").drawImage(trimPreviewSource, sx, sy, sw, sh, 0, 0, sw, sh);
+  return trimCropCanvas.toDataURL("image/png");
+}
+
+// ---- margin model: one shared value (top=bottom=left=right) by default,
+// or four independent values when "余白を上下左右で個別に設定する" is on.
+// The staple flap (ホチキスの余白) is separate, additional space stacked
+// above the regular top margin - not a substitute for it. ----
+const CUT_GUIDE_MIN_MM = 1; // a guide with no room of its own sits on the card's edge and gets covered
+const STAPLE_MIN_MM = 8; // needs enough room to fold and actually get a staple through
+
+function getMargins() {
+  if (detailedMarginInput.checked) {
+    return {
+      top: Math.max(0, numOr(marginTopInput.value, 3)),
+      bottom: Math.max(0, numOr(marginBottomInput.value, 3)),
+      left: Math.max(0, numOr(marginLeftInput.value, 3)),
+      right: Math.max(0, numOr(marginRightInput.value, 3)),
+    };
+  }
+  const v = Math.max(0, numOr(marginUniformInput.value, 3));
+  return { top: v, bottom: v, left: v, right: v };
+}
+
+// { area: total flap height, cross: crosshair position from the flap's top }
+function getStapleGeometry() {
+  if (!stapleEnabledInput.checked) return { area: 0, cross: 0 };
+  if (detailedMarginInput.checked) {
+    const above = Math.max(0, numOr(stapleAboveInput.value, 8));
+    const below = Math.max(0, numOr(stapleBelowInput.value, 7));
+    return { area: above + below, cross: above };
+  }
+  const area = Math.max(STAPLE_MIN_MM, numOr(stapleMarginInput.value, 15));
+  return { area, cross: area / 2 };
+}
+
+// keeps the min= on each margin stepper (and the actual value, snapped up
+// visibly rather than silently substituted) in sync with what cut guide
+// currently needs, so what's shown always matches what's used
+function syncMarginRequirements() {
+  const min = cutGuideEnabledInput.checked ? CUT_GUIDE_MIN_MM : 0;
+  function apply(input) {
+    input.min = String(min);
+    if (numOr(input.value, 0) < min) input.value = min;
+  }
+  if (detailedMarginInput.checked) {
+    apply(marginTopInput);
+    apply(marginBottomInput);
+    apply(marginLeftInput);
+    apply(marginRightInput);
+  } else {
+    apply(marginUniformInput);
+  }
+}
+
+// >=1; a scale below 100% isn't offered here since shrinking the card
+// serves no real purpose and just wastes resolution
+function getCardScale() {
+  return Math.max(1, numOr(cardScaleInput.value, 100) / 100);
+}
+
 function renderSchematic() {
-  const marginAboveMm = numOr(marginAboveInput.value, 0);
-  const marginBelowMm = numOr(marginBelowInput.value, 0);
+  const showStaple = stapleEnabledInput.checked;
+  const showCutGuide = cutGuideEnabledInput.checked;
+  syncMarginRequirements();
+  const { top, bottom, left, right } = getMargins();
+  const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
   const gapMm = Math.max(0, numOr(gapMmInput.value, 0));
-  const foldMm = marginAboveMm + marginBelowMm;
-  const tagWmm = SCHEM_SIDE_MARGIN_MM * 2 + SCHEM_CARD_W_MM;
-  const tagHmm = foldMm + SCHEM_CARD_H_MM + SCHEM_BOTTOM_MARGIN_MM;
-  const tag = schemTagHtml(tagWmm, tagHmm, marginAboveMm, foldMm);
-  schematicPreview.innerHTML = `${tag}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag}`;
+  const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
+  const cardScale = getCardScale();
+
+  let cardWmm = SCHEM_CARD_W_MM;
+  let cardHmm = SCHEM_CARD_H_MM;
+  let cardImgSrc = null;
+  if (trimPreviewSource) {
+    cardWmm = Math.max(4, trimPreviewCardWpt / MM - 2 * cardTrimMm) * cardScale;
+    cardHmm = Math.max(4, trimPreviewCardHpt / MM - 2 * cardTrimMm) * cardScale;
+    cardImgSrc = cropTrimPreview(cardTrimMm);
+  }
+
+  const cardTopMm = stapleAreaMm + top;
+  const tagWmm = left + cardWmm + right;
+  const tagHmm = cardTopMm + cardHmm + bottom;
+  const tag1 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, false);
+  const tag2 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, gapMm === 0);
+  schematicPreview.innerHTML = `${tag1}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag2}`;
 }
 
 function adjustValue(input, step) {
@@ -100,15 +228,91 @@ document.addEventListener("pointerdown", (e) => {
   }, 450);
 });
 
-marginAboveInput.addEventListener("input", renderSchematic);
-marginBelowInput.addEventListener("input", renderSchematic);
+// "詳細" links toggle an accordion-style explanation panel open/closed. The
+// label text stays "詳細" either way (rather than swapping to "閉じる") so
+// its width never changes and the row never re-wraps just from toggling.
+document.addEventListener("click", (e) => {
+  const link = e.target.closest(".detail-link");
+  if (!link) return;
+  const panel = document.getElementById(link.dataset.detail);
+  if (!panel) return;
+  const open = panel.classList.toggle("open");
+  link.setAttribute("aria-expanded", String(open));
+});
+
+// the staple flap fields' visibility depends on BOTH whether staple is on
+// and whether detailed mode is on, so it's recomputed from both handlers
+function updateStapleRowVisibility() {
+  const on = stapleEnabledInput.checked;
+  const detailed = detailedMarginInput.checked;
+  stapleMarginRow.hidden = !on || detailed;
+  stapleAboveRow.hidden = !on || !detailed;
+  stapleBelowRow.hidden = !on || !detailed;
+}
+
+cutGuideEnabledInput.addEventListener("change", renderSchematic);
+stapleEnabledInput.addEventListener("change", () => {
+  updateStapleRowVisibility();
+  if (stapleEnabledInput.checked && numOr(stapleMarginInput.value, 0) < STAPLE_MIN_MM) {
+    stapleMarginInput.value = STAPLE_MIN_MM;
+  }
+  renderSchematic();
+});
+stapleMarginInput.addEventListener("input", renderSchematic);
+stapleAboveInput.addEventListener("input", renderSchematic);
+stapleBelowInput.addEventListener("input", renderSchematic);
+detailedMarginInput.addEventListener("change", () => {
+  const detailed = detailedMarginInput.checked;
+  marginUniformRow.hidden = detailed;
+  marginTopRow.hidden = !detailed;
+  marginBottomRow.hidden = !detailed;
+  marginLeftRow.hidden = !detailed;
+  marginRightRow.hidden = !detailed;
+  if (detailed) {
+    // seed the 4 fields from the shared value so switching modes doesn't
+    // reset the margin the user already set up
+    const v = marginUniformInput.value;
+    marginTopInput.value = v;
+    marginBottomInput.value = v;
+    marginLeftInput.value = v;
+    marginRightInput.value = v;
+    // split the staple flap's single value into above/below, keeping the
+    // same total height so the tag doesn't jump when switching modes
+    const total = Math.max(0, numOr(stapleMarginInput.value, 15));
+    const above = Math.round(total / 2);
+    stapleAboveInput.value = above;
+    stapleBelowInput.value = total - above;
+  } else {
+    // merge above/below back into the single value, same total
+    const total = Math.max(0, numOr(stapleAboveInput.value, 8)) + Math.max(0, numOr(stapleBelowInput.value, 7));
+    stapleMarginInput.value = total;
+  }
+  updateStapleRowVisibility();
+  renderSchematic();
+});
+marginUniformInput.addEventListener("input", renderSchematic);
+marginTopInput.addEventListener("input", renderSchematic);
+marginBottomInput.addEventListener("input", renderSchematic);
+marginLeftInput.addEventListener("input", renderSchematic);
+marginRightInput.addEventListener("input", renderSchematic);
 gapMmInput.addEventListener("input", renderSchematic);
+cardTrimInput.addEventListener("input", renderSchematic);
+cardScaleInput.addEventListener("input", renderSchematic);
 renderSchematic();
 
+// upload/detection messages go next to the dropzone; conversion messages go
+// next to the "変換する" button - each near the control that triggered it,
+// so an error doesn't end up out of view above a long cards/settings list
 function setStatus(msg, kind) {
-  statusEl.hidden = false;
-  statusEl.textContent = msg;
-  statusEl.className = "status" + (kind ? " " + kind : "");
+  setStatusOn(statusEl, msg, kind);
+}
+function setProcessStatus(msg, kind) {
+  setStatusOn(processStatusEl, msg, kind);
+}
+function setStatusOn(el, msg, kind) {
+  el.hidden = false;
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
 }
 
 dropzone.addEventListener("click", () => fileInput.click());
@@ -133,14 +337,19 @@ async function handleFile(file) {
   }
   currentFileBytes = new Uint8Array(await file.arrayBuffer());
   allCardsByPage = null;
+  trimPreviewSource = null;
+  trimPreviewCardWpt = 0;
+  trimPreviewCardHpt = 0;
   cardsSectionEl.hidden = true;
   optionsEl.hidden = true;
   previewArea.hidden = true;
+  processStatusEl.hidden = true;
   setStatus(`「${file.name}」を読み込みました。カードを検出しています…`, null);
 
   try {
     allCardsByPage = await detectCards();
     renderCardsList();
+    renderSchematic();
     cardsSectionEl.hidden = false;
     optionsEl.hidden = false;
     const totalCards = allCardsByPage.reduce((s, p) => s + p.cards.length, 0);
@@ -177,24 +386,35 @@ async function detectCards() {
     }
     const pageHeightPt = viewport.height / RENDER_SCALE;
     const THUMB_W = 160;
-    const cardsPt = boxesPx
-      .sort((a, b) => a.minY - b.minY || a.minX - b.minX)
-      .map((b) => {
-        const wPx = b.maxX - b.minX, hPx = b.maxY - b.minY;
-        const thumbCanvas = document.createElement("canvas");
-        thumbCanvas.width = THUMB_W;
-        thumbCanvas.height = Math.round((hPx / wPx) * THUMB_W);
-        thumbCanvas
-          .getContext("2d")
-          .drawImage(canvas, b.minX, b.minY, wPx, hPx, 0, 0, thumbCanvas.width, thumbCanvas.height);
-        return {
-          x0: b.minX / RENDER_SCALE,
-          x1: b.maxX / RENDER_SCALE,
-          top: b.minY / RENDER_SCALE,
-          bottom: b.maxY / RENDER_SCALE,
-          thumbUrl: thumbCanvas.toDataURL("image/png"),
-        };
-      });
+    const sortedBoxes = boxesPx.sort((a, b) => a.minY - b.minY || a.minX - b.minX);
+    const cardsPt = sortedBoxes.map((b) => {
+      const wPx = b.maxX - b.minX, hPx = b.maxY - b.minY;
+      const thumbCanvas = document.createElement("canvas");
+      thumbCanvas.width = THUMB_W;
+      thumbCanvas.height = Math.round((hPx / wPx) * THUMB_W);
+      thumbCanvas
+        .getContext("2d")
+        .drawImage(canvas, b.minX, b.minY, wPx, hPx, 0, 0, thumbCanvas.width, thumbCanvas.height);
+      return {
+        x0: b.minX / RENDER_SCALE,
+        x1: b.maxX / RENDER_SCALE,
+        top: b.minY / RENDER_SCALE,
+        bottom: b.maxY / RENDER_SCALE,
+        thumbUrl: thumbCanvas.toDataURL("image/png"),
+      };
+    });
+    if (!trimPreviewSource) {
+      // keep a real, full-resolution, uncropped copy of one card so
+      // "カードのふちを削る" can show the actual crop instead of a mock-up
+      const b = sortedBoxes[0];
+      const src = document.createElement("canvas");
+      src.width = b.maxX - b.minX;
+      src.height = b.maxY - b.minY;
+      src.getContext("2d").drawImage(canvas, b.minX, b.minY, src.width, src.height, 0, 0, src.width, src.height);
+      trimPreviewSource = src;
+      trimPreviewCardWpt = src.width / RENDER_SCALE;
+      trimPreviewCardHpt = src.height / RENDER_SCALE;
+    }
     result.push({ pageIndex: pageNum - 1, pageHeightPt, cards: cardsPt });
   }
   return result;
@@ -223,20 +443,27 @@ function renderCardsList() {
   cardsListEl.innerHTML = items.join("");
 }
 
+
 processBtn.addEventListener("click", () => {
   if (!currentFileBytes || !allCardsByPage) return;
   process().catch((err) => {
     console.error(err);
-    setStatus("エラーが発生しました：" + err.message, "error");
+    processBtn.disabled = false;
+    setProcessStatus("エラーが発生しました：" + err.message, "error");
   });
 });
 
 async function process() {
   processBtn.disabled = true;
-  setStatus("タグPDFを作成しています…", null);
+  setProcessStatus("タグPDFを作成しています…", null);
 
-  const marginAboveMm = numOr(marginAboveInput.value, 8);
-  const marginBelowMm = numOr(marginBelowInput.value, 7);
+  const showCutGuide = cutGuideEnabledInput.checked;
+  const stapleEnabled = stapleEnabledInput.checked;
+  syncMarginRequirements();
+  const { top: topMm, bottom: bottomMm, left: leftMm, right: rightMm } = getMargins();
+  const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
+  const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
+  const cardScale = getCardScale();
   const gapMm = numOr(gapMmInput.value, 0);
 
   const totalCards = allCardsByPage.reduce(
@@ -253,13 +480,15 @@ async function process() {
 
   const outDoc = await PDFDocument.create();
 
-  const staple_margin_above = marginAboveMm * MM;
-  const staple_margin_below = marginBelowMm * MM;
-  const staple_margin = staple_margin_above + staple_margin_below;
-  const bottom_margin = 3 * MM;
-  const side_margin = 3 * MM;
+  const staple_area = stapleAreaMm * MM; // additional space above top_margin, only when staple is on
+  const top_margin = topMm * MM;
+  const bottom_margin = bottomMm * MM;
+  const left_margin = leftMm * MM;
+  const right_margin = rightMm * MM;
+  const card_top_offset = staple_area + top_margin; // from tag top to card top
   const gap = gapMm * MM;
-  const page_margin = 10 * MM;
+  const trim = cardTrimMm * MM; // shaves the source card's own border off by cropping it out of the embed
+  const min_page_margin = 3 * MM; // printer-safe minimum, not a fixed layout margin
   const page_w = 595.0, page_h = 842.0; // A4
 
   // cards are usually a consistent size, but height can vary slightly row
@@ -268,16 +497,21 @@ async function process() {
   // card is still drawn at its own true size below, so nothing gets
   // stretched or squished to fit
   const allCards = allCardsByPage.flatMap((p) => p.cards);
-  const maxCardW = Math.max(...allCards.map((c) => c.x1 - c.x0));
-  const maxCardH = Math.max(...allCards.map((c) => c.bottom - c.top));
-  const tag_w = side_margin * 2 + maxCardW;
-  const tag_h = staple_margin + maxCardH + bottom_margin;
+  const maxCardW = Math.max(...allCards.map((c) => Math.max(1, c.x1 - c.x0 - 2 * trim) * cardScale));
+  const maxCardH = Math.max(...allCards.map((c) => Math.max(1, c.bottom - c.top - 2 * trim) * cardScale));
+  const tag_w = left_margin + maxCardW + right_margin;
+  const tag_h = card_top_offset + maxCardH + bottom_margin;
 
-  const usable_w = page_w - 2 * page_margin;
-  const usable_h = page_h - 2 * page_margin;
-  const cols = Math.max(1, Math.floor((usable_w + gap) / (tag_w + gap)));
-  const rows = Math.max(1, Math.floor((usable_h + gap) / (tag_h + gap)));
+  // fit as many columns/rows as actually fit within a minimal margin, then
+  // center the resulting grid so leftover space is spread evenly around it
+  // instead of being dumped as one big unused strip on the right/bottom
+  const cols = Math.max(1, Math.floor((page_w - 2 * min_page_margin + gap) / (tag_w + gap)));
+  const rows = Math.max(1, Math.floor((page_h - 2 * min_page_margin + gap) / (tag_h + gap)));
   const perPage = cols * rows;
+  const grid_w = cols * tag_w + (cols - 1) * gap;
+  const grid_h = rows * tag_h + (rows - 1) * gap;
+  const page_margin_x = (page_w - grid_w) / 2;
+  const page_margin_y = (page_h - grid_h) / 2;
 
   let outPage = null;
   let idx = 0;
@@ -288,12 +522,19 @@ async function process() {
       const count = Math.max(0, Math.round(numOr(document.getElementById(c.countInputId).value, 1)));
       if (count === 0) continue;
 
-      const card_w = c.x1 - c.x0;
-      const card_h = c.bottom - c.top;
+      // crop the trim amount off each edge before embedding, so the source
+      // card's own border (baked into its vector artwork) is cropped away
+      // rather than just covered up
+      const cropX0 = c.x0 + trim, cropX1 = c.x1 - trim;
+      const cropTop = c.top + trim, cropBottom = c.bottom - trim;
+      // the embed's source crop box stays at its real (unscaled) size -
+      // only how large it's drawn on the output page is scaled up
+      const card_w = Math.max(1, cropX1 - cropX0) * cardScale;
+      const card_h = Math.max(1, cropBottom - cropTop) * cardScale;
       // embedding is the same regardless of how many times this card repeats
       const embedded = await outDoc.embedPage(srcPage, {
-        left: c.x0, right: c.x1,
-        top: pageHeight - c.top, bottom: pageHeight - c.bottom,
+        left: cropX0, right: cropX1,
+        top: pageHeight - cropTop, bottom: pageHeight - cropBottom,
       });
 
       for (let n = 0; n < count; n++) {
@@ -301,35 +542,63 @@ async function process() {
         if (pos === 0) outPage = outDoc.addPage([page_w, page_h]);
         const col = pos % cols;
         const row = Math.floor(pos / cols);
-        const ox = page_margin + col * (tag_w + gap);
-        const oyTop = page_margin + row * (tag_h + gap);
+        const ox = page_margin_x + col * (tag_w + gap);
+        const oyTop = page_margin_y + row * (tag_h + gap);
         const tagBottomY = page_h - (oyTop + tag_h);
 
-        outPage.drawRectangle({
-          x: ox, y: tagBottomY, width: tag_w, height: tag_h,
-          borderColor: rgb(0.55, 0.55, 0.55), borderWidth: 0.6,
-          borderDashArray: [2, 2],
-        });
+        if (showCutGuide) {
+          const guideColor = rgb(0.5, 0.5, 0.5);
+          const guideWidth = 0.7;
+          const dashArray = [4, 2.5];
+          const left = ox, right = ox + tag_w;
+          const bottom = tagBottomY, top = tagBottomY + tag_h;
+          // when tags touch (gap 0) each tag drawing its own full rectangle
+          // means the shared edge between two neighbors gets drawn twice -
+          // once by each tag - which is redundant, not "a thicker line".
+          // Tags are filled left-to-right then top-to-bottom, so a tag's
+          // left/top neighbor (when gap is 0) has always already drawn that
+          // shared edge; only draw the two edges nothing else owns yet.
+          const skipLeft = col > 0 && gap === 0;
+          const skipTop = row > 0 && gap === 0;
+          if (!skipLeft) {
+            outPage.drawLine({ start: { x: left, y: bottom }, end: { x: left, y: top }, color: guideColor, thickness: guideWidth, dashArray });
+          }
+          if (!skipTop) {
+            outPage.drawLine({ start: { x: left, y: top }, end: { x: right, y: top }, color: guideColor, thickness: guideWidth, dashArray });
+          }
+          outPage.drawLine({ start: { x: right, y: bottom }, end: { x: right, y: top }, color: guideColor, thickness: guideWidth, dashArray });
+          outPage.drawLine({ start: { x: left, y: bottom }, end: { x: right, y: bottom }, color: guideColor, thickness: guideWidth, dashArray });
+        }
 
-        const foldYFromTop = oyTop + staple_margin;
-        const foldYBottom = page_h - foldYFromTop;
-        outPage.drawLine({
-          start: { x: ox + 2, y: foldYBottom }, end: { x: ox + tag_w - 2, y: foldYBottom },
-          color: rgb(0.7, 0.7, 0.7), thickness: 0.5, dashArray: [1, 2],
-        });
-
-        const cx = ox + tag_w / 2;
-        const cyFromTop = oyTop + staple_margin_above;
-        const cyBottom = page_h - cyFromTop;
-        const r = 4.5;
-        outPage.drawEllipse({ x: cx, y: cyBottom, xScale: r, yScale: r, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
-        outPage.drawLine({ start: { x: cx - r - 2, y: cyBottom }, end: { x: cx + r + 2, y: cyBottom }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
-        outPage.drawLine({ start: { x: cx, y: cyBottom - r - 2 }, end: { x: cx, y: cyBottom + r + 2 }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
-
-        const destX = ox + side_margin;
-        const destYTopOffset = oyTop + staple_margin;
+        const destX = ox + left_margin;
+        const destYTopOffset = oyTop + card_top_offset;
         const destYBottom = page_h - (destYTopOffset + card_h);
         outPage.drawPage(embedded, { x: destX, y: destYBottom, width: card_w, height: card_h });
+
+        if (stapleEnabled) {
+          // the fold line sits at the bottom edge of the staple flap - the
+          // flap gets folded back behind the tag along this line, so it's
+          // above the card's own top margin, not on the card itself. Still
+          // drawn after the card image in case top_margin is 0 and the two
+          // coincide.
+          const foldYFromTop = oyTop + staple_area;
+          const foldYBottom = page_h - foldYFromTop;
+          outPage.drawLine({
+            start: { x: ox + 2, y: foldYBottom }, end: { x: ox + tag_w - 2, y: foldYBottom },
+            color: rgb(0.7, 0.7, 0.7), thickness: 0.5, dashArray: [1, 2],
+          });
+
+          // crosshair sits at its configured position within the staple
+          // flap (centered in simple mode, or the exact 上/下 split in
+          // detailed mode)
+          const cx = ox + tag_w / 2;
+          const cyFromTop = oyTop + stapleCrossMm * MM;
+          const cyBottom = page_h - cyFromTop;
+          const r = 4.5;
+          outPage.drawEllipse({ x: cx, y: cyBottom, xScale: r, yScale: r, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
+          outPage.drawLine({ start: { x: cx - r - 2, y: cyBottom }, end: { x: cx + r + 2, y: cyBottom }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
+          outPage.drawLine({ start: { x: cx, y: cyBottom - r - 2 }, end: { x: cx, y: cyBottom + r + 2 }, color: rgb(0.65, 0.65, 0.65), thickness: 0.5 });
+        }
 
         idx++;
       }
@@ -344,7 +613,7 @@ async function process() {
 
   await renderPreview(outBytes);
 
-  setStatus(`完成しました！${totalCards}件のタグを作成しました。`, "ok");
+  setProcessStatus(`完成しました！${totalCards}件のタグを作成しました。`, "ok");
   processBtn.disabled = false;
 }
 

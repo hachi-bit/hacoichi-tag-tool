@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
   <main class="wrap">
     <h1>🐝 ハコイチ値札加工ツール</h1>
     <p class="lead">ハコイチ管理システムから出力したバーコードPDFを、ホチキス留めしやすい余白付きの値札PDFに変換します。</p>
     <a class="usage-link" href="usage.html">📖 使い方ガイドを見る</a>
+    <a class="usage-link" href="changelog.html">🕗 更新履歴を見る</a>
 
     <div id="dropzone" class="dropzone">
       <p>ここにPDFをドラッグ＆ドロップ<br>またはタップして選択</p>
@@ -27,21 +28,87 @@
 
     <section id="options" class="options" hidden>
       <h2>レイアウト設定</h2>
-      <label>
-        <span>ホチキス上の余白</span>
+      <label class="checkbox-row">
+        <input type="checkbox" id="cutGuideEnabled" checked>
+        <span>カットガイド（点線の枠）を表示する</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="stapleEnabled">
+        <span>ホチキスの目印を追加する</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="detailedMargin">
+        <span>余白を個別に設定する</span>
+      </label>
+      <label id="stapleMarginRow" hidden>
+        <span>ホチキスの余白</span>
         <span class="stepper">
-          <button type="button" class="step-btn" data-target="marginAbove" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="marginAbove" value="8" min="2" max="35" step="1">
-          <button type="button" class="step-btn" data-target="marginAbove" data-step="1" aria-label="1mm増やす">＋</button>
+          <button type="button" class="step-btn" data-target="stapleMargin" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="stapleMargin" value="15" min="8" max="50" step="1">
+          <button type="button" class="step-btn" data-target="stapleMargin" data-step="1" aria-label="1mm増やす">＋</button>
           <span class="unit">mm</span>
         </span>
       </label>
-      <label>
+      <label id="stapleAboveRow" hidden>
+        <span>ホチキス上の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="stapleAbove" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="stapleAbove" value="8" min="2" max="45" step="1">
+          <button type="button" class="step-btn" data-target="stapleAbove" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="stapleBelowRow" hidden>
         <span>ホチキス下の余白</span>
         <span class="stepper">
-          <button type="button" class="step-btn" data-target="marginBelow" data-step="-1" aria-label="1mm減らす">－</button>
-          <input type="number" id="marginBelow" value="7" min="2" max="35" step="1">
-          <button type="button" class="step-btn" data-target="marginBelow" data-step="1" aria-label="1mm増やす">＋</button>
+          <button type="button" class="step-btn" data-target="stapleBelow" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="stapleBelow" value="7" min="2" max="45" step="1">
+          <button type="button" class="step-btn" data-target="stapleBelow" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginUniformRow">
+        <span>カードまわりの余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginUniform" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginUniform" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginUniform" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginTopRow" hidden>
+        <span>上の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginTop" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginTop" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginTop" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginBottomRow" hidden>
+        <span>下の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginBottom" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginBottom" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginBottom" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginLeftRow" hidden>
+        <span>左の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginLeft" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginLeft" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginLeft" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <label id="marginRightRow" hidden>
+        <span>右の余白</span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="marginRight" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="marginRight" value="3" min="0" max="35" step="1">
+          <button type="button" class="step-btn" data-target="marginRight" data-step="1" aria-label="1mm増やす">＋</button>
           <span class="unit">mm</span>
         </span>
       </label>
@@ -55,12 +122,48 @@
         </span>
       </label>
 
+      <label>
+        <span class="label-with-detail">
+          <span>カードの拡大率</span>
+          <button type="button" class="detail-link" data-detail="cardScaleDetail" aria-expanded="false">詳細</button>
+        </span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="cardScale" data-step="-5" aria-label="5%減らす">－</button>
+          <input type="number" id="cardScale" value="100" min="100" max="300" step="5">
+          <button type="button" class="step-btn" data-target="cardScale" data-step="5" aria-label="5%増やす">＋</button>
+          <span class="unit">%</span>
+        </span>
+      </label>
+      <div class="detail-panel-wrap" id="cardScaleDetail">
+        <div class="detail-panel-inner">
+          <p class="schematic-label">タグ自体が小さいと感じる場合に、カード（バーコードや文字）を拡大できます。大きくするほどタグ全体のサイズも一緒に大きくなります。</p>
+        </div>
+      </div>
+      <label>
+        <span class="label-with-detail">
+          <span>カードのふちを削る</span>
+          <button type="button" class="detail-link" data-detail="cardTrimDetail" aria-expanded="false">詳細</button>
+        </span>
+        <span class="stepper">
+          <button type="button" class="step-btn" data-target="cardTrim" data-step="-1" aria-label="1mm減らす">－</button>
+          <input type="number" id="cardTrim" value="2" min="0" max="5" step="1">
+          <button type="button" class="step-btn" data-target="cardTrim" data-step="1" aria-label="1mm増やす">＋</button>
+          <span class="unit">mm</span>
+        </span>
+      </label>
+      <div class="detail-panel-wrap" id="cardTrimDetail">
+        <div class="detail-panel-inner">
+          <p class="schematic-label">下の「配置イメージ」に実際のカードが反映され、削った分だけ縮んで表示されます。商品カードの黒い枠線が消えるくらいが目安です。増やしすぎると文字やバーコードも一緒に切れてしまうので、確認しながら調整してください。</p>
+        </div>
+      </div>
+
       <div class="schematic">
-        <p class="schematic-label">配置イメージ（実際の値札の内容は変換後にプレビューできます）</p>
+        <p class="schematic-label" style="font-size: 0.92rem;">配置イメージ（検出したカードを実際に反映しています）</p>
         <div id="schematicPreview" class="schematic-preview"></div>
       </div>
 
       <button id="processBtn">この設定で変換する</button>
+      <div id="processStatus" class="status" hidden></div>
     </section>
 
     <div id="previewArea" class="preview" hidden>
@@ -75,6 +178,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=31"></script>
 </body>
 </html>
