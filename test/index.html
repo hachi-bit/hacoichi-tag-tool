@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <main class="wrap">
@@ -53,10 +53,7 @@
           <span class="unit">mm</span>
         </span>
       </label>
-      <p class="schematic-label" style="margin-top: -8px;">下のプレビューで実際に削られた後のタグを確認できます。商品カードの黒い枠線が消えるくらいが目安です。増やしすぎると文字やバーコードも一緒に切れてしまうので、確認しながら調整してください。</p>
-      <div class="trim-preview">
-        <canvas id="trimPreviewCanvas" class="trim-preview-canvas"></canvas>
-      </div>
+      <p class="schematic-label" style="margin-top: -8px;">下の「配置イメージ」に実際のカードが反映され、削った分だけ縮んで表示されます。商品カードの黒い枠線が消えるくらいが目安です。増やしすぎると文字やバーコードも一緒に切れてしまうので、確認しながら調整してください。</p>
       <label id="marginAboveRow">
         <span>ホチキス上の余白</span>
         <span class="stepper">
@@ -86,7 +83,7 @@
       </label>
 
       <div class="schematic">
-        <p class="schematic-label">配置イメージ（実際の値札の内容は変換後にプレビューできます）</p>
+        <p class="schematic-label">配置イメージ（検出したカードを実際に反映しています）</p>
         <div id="schematicPreview" class="schematic-preview"></div>
       </div>
 
@@ -106,6 +103,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=17"></script>
+<script type="module" src="app.js?v=18"></script>
 </body>
 </html>

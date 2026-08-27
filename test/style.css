@@ -221,23 +221,6 @@ h1 {
   background: #fff;
 }
 .card-item .stepper { justify-content: center; }
-.trim-preview {
-  display: flex;
-  justify-content: center;
-  padding: 10px;
-  margin-top: -4px;
-  margin-bottom: 4px;
-  border: 1px solid var(--gray-line);
-  border-radius: 8px;
-  background: #f6f4ee;
-}
-.trim-preview-canvas {
-  max-width: 100%;
-  height: auto;
-  border: 1px solid var(--gray-line);
-  border-radius: 4px;
-  background: #fff;
-}
 .card-item .unit { min-width: 1.4em; }
 
 button, .download-btn {

@@ -29,11 +29,12 @@ const gapMmInput = document.getElementById("gapMm");
 const schematicPreview = document.getElementById("schematicPreview");
 const cardsSectionEl = document.getElementById("cardsSection");
 const cardsListEl = document.getElementById("cardsList");
-const trimPreviewCanvas = document.getElementById("trimPreviewCanvas");
 
 let currentFileBytes = null;
 let allCardsByPage = null; // detection result for the current file, cached so re-clicking "変換する" doesn't re-detect
-let trimPreviewSource = null; // a real, uncropped raster of one detected card, used to show the actual trim effect
+let trimPreviewSource = null; // a real, uncropped raster of one detected card, shown in the schematic in place of the placeholder
+let trimPreviewCardWpt = 0;
+let trimPreviewCardHpt = 0;
 
 // parseFloat(...) || fallback would wrongly replace a legitimate 0 with the
 // fallback (0 is falsy), so check for a finite number instead.
@@ -51,18 +52,38 @@ function schemPx(mm) {
   return mm * SCHEM_PX_PER_MM;
 }
 
-function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple, showCutGuide) {
+function schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide) {
   const staple = showStaple
     ? `<div class="schem-fold" style="top:${schemPx(foldMm)}px;"></div>
        <div class="schem-cross" style="top:${schemPx(marginAboveMm)}px;">⊕</div>`
     : "";
   const border = showCutGuide ? "1px dashed #b9b2a3" : "none";
+  // once a real card is detected, show it (cropped by the current trim)
+  // instead of the generic hatched placeholder
+  const cardStyle = cardImgSrc
+    ? `background-image:url(${cardImgSrc}); background-size:cover; background-position:center; background-repeat:no-repeat;`
+    : "";
   return `
     <div class="schem-tag" style="width:${schemPx(tagWmm)}px;height:${schemPx(tagHmm)}px;border:${border};">
       ${staple}
-      <div class="schem-card" style="left:${schemPx(cardMarginMm)}px; top:${schemPx(foldMm)}px; width:${schemPx(SCHEM_CARD_W_MM)}px; height:${schemPx(SCHEM_CARD_H_MM)}px;"></div>
+      <div class="schem-card" style="left:${schemPx(cardMarginMm)}px; top:${schemPx(foldMm)}px; width:${schemPx(cardWmm)}px; height:${schemPx(cardHmm)}px; ${cardStyle}"></div>
     </div>
   `;
+}
+
+// offscreen canvas used only to crop the real reference card at the current
+// trim amount for the schematic preview below
+const trimCropCanvas = document.createElement("canvas");
+function cropTrimPreview(trimMm) {
+  const trimPx = trimMm * MM * RENDER_SCALE;
+  const sw = Math.max(1, trimPreviewSource.width - 2 * trimPx);
+  const sh = Math.max(1, trimPreviewSource.height - 2 * trimPx);
+  const sx = Math.min(trimPx, trimPreviewSource.width / 2);
+  const sy = Math.min(trimPx, trimPreviewSource.height / 2);
+  trimCropCanvas.width = sw;
+  trimCropCanvas.height = sh;
+  trimCropCanvas.getContext("2d").drawImage(trimPreviewSource, sx, sy, sw, sh, 0, 0, sw, sh);
+  return trimCropCanvas.toDataURL("image/png");
 }
 
 function renderSchematic() {
@@ -76,10 +97,21 @@ function renderSchematic() {
   const marginAboveMm = showStaple ? numOr(marginAboveInput.value, 0) : cardMarginMm;
   const marginBelowMm = showStaple ? numOr(marginBelowInput.value, 0) : 0;
   const gapMm = Math.max(0, numOr(gapMmInput.value, 0));
+  const cardTrimMm = Math.max(0, numOr(cardTrimInput.value, 2));
   const foldMm = marginAboveMm + marginBelowMm;
-  const tagWmm = cardMarginMm * 2 + SCHEM_CARD_W_MM;
-  const tagHmm = foldMm + SCHEM_CARD_H_MM + cardMarginMm;
-  const tag = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, showStaple, showCutGuide);
+
+  let cardWmm = SCHEM_CARD_W_MM;
+  let cardHmm = SCHEM_CARD_H_MM;
+  let cardImgSrc = null;
+  if (trimPreviewSource) {
+    cardWmm = Math.max(4, trimPreviewCardWpt / MM - 2 * cardTrimMm);
+    cardHmm = Math.max(4, trimPreviewCardHpt / MM - 2 * cardTrimMm);
+    cardImgSrc = cropTrimPreview(cardTrimMm);
+  }
+
+  const tagWmm = cardMarginMm * 2 + cardWmm;
+  const tagHmm = foldMm + cardHmm + cardMarginMm;
+  const tag = schemTagHtml(tagWmm, tagHmm, cardMarginMm, marginAboveMm, foldMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide);
   schematicPreview.innerHTML = `${tag}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag}`;
 }
 
@@ -124,6 +156,7 @@ cardMarginInput.addEventListener("input", renderSchematic);
 marginAboveInput.addEventListener("input", renderSchematic);
 marginBelowInput.addEventListener("input", renderSchematic);
 gapMmInput.addEventListener("input", renderSchematic);
+cardTrimInput.addEventListener("input", renderSchematic);
 renderSchematic();
 
 // upload/detection messages go next to the dropzone; conversion messages go
@@ -164,6 +197,8 @@ async function handleFile(file) {
   currentFileBytes = new Uint8Array(await file.arrayBuffer());
   allCardsByPage = null;
   trimPreviewSource = null;
+  trimPreviewCardWpt = 0;
+  trimPreviewCardHpt = 0;
   cardsSectionEl.hidden = true;
   optionsEl.hidden = true;
   previewArea.hidden = true;
@@ -173,7 +208,7 @@ async function handleFile(file) {
   try {
     allCardsByPage = await detectCards();
     renderCardsList();
-    updateTrimPreview();
+    renderSchematic();
     cardsSectionEl.hidden = false;
     optionsEl.hidden = false;
     const totalCards = allCardsByPage.reduce((s, p) => s + p.cards.length, 0);
@@ -236,6 +271,8 @@ async function detectCards() {
       src.height = b.maxY - b.minY;
       src.getContext("2d").drawImage(canvas, b.minX, b.minY, src.width, src.height, 0, 0, src.width, src.height);
       trimPreviewSource = src;
+      trimPreviewCardWpt = src.width / RENDER_SCALE;
+      trimPreviewCardHpt = src.height / RENDER_SCALE;
     }
     result.push({ pageIndex: pageNum - 1, pageHeightPt, cards: cardsPt });
   }
@@ -265,26 +302,6 @@ function renderCardsList() {
   cardsListEl.innerHTML = items.join("");
 }
 
-// actually crops the real reference card raster by the current trim amount
-// and draws it into the preview canvas, so the user sees the true result
-// instead of a mock-up
-function updateTrimPreview() {
-  if (!trimPreviewSource) return;
-  const trimMm = Math.max(0, numOr(cardTrimInput.value, 2));
-  const trimPx = trimMm * MM * RENDER_SCALE;
-  const sw = Math.max(1, trimPreviewSource.width - 2 * trimPx);
-  const sh = Math.max(1, trimPreviewSource.height - 2 * trimPx);
-  const sx = Math.min(trimPx, trimPreviewSource.width / 2);
-  const sy = Math.min(trimPx, trimPreviewSource.height / 2);
-
-  const PREVIEW_W = 240;
-  trimPreviewCanvas.width = PREVIEW_W;
-  trimPreviewCanvas.height = Math.round((sh / sw) * PREVIEW_W);
-  const ctx = trimPreviewCanvas.getContext("2d");
-  ctx.clearRect(0, 0, trimPreviewCanvas.width, trimPreviewCanvas.height);
-  ctx.drawImage(trimPreviewSource, sx, sy, sw, sh, 0, 0, trimPreviewCanvas.width, trimPreviewCanvas.height);
-}
-cardTrimInput.addEventListener("input", updateTrimPreview);
 
 processBtn.addEventListener("click", () => {
   if (!currentFileBytes || !allCardsByPage) return;
