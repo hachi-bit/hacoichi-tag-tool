@@ -362,6 +362,37 @@ async function handleFile(file) {
 
 // render each source page to a canvas, detect card boxes, and crop a
 // thumbnail per card so the "枚数" list can show what each one actually is
+// ハコイチの管理画面をそのままPDF出力すると、商品カードとは無関係な
+// 「ログアウト」リンクがページ上部に含まれることがある。これが偶然カード
+// と近い横幅のブロックとして検出され、タグの1枚として誤認識されてしまう
+// ことがあるため、テキストレイヤーから位置を特定してピクセル検出の対象
+// から除外する（画像だけでは文字の内容を判別できないため）。
+async function getLogoutTextRects(page, viewport) {
+  const textContent = await page.getTextContent();
+  const rects = [];
+  for (const item of textContent.items) {
+    if (!item.str || !item.str.includes("ログアウト")) continue;
+    // item.transform's (e, f) is the run's origin in PDF page space, and
+    // item.width/height are already in that same page-space scale (not a
+    // local glyph space to be re-scaled), so the run's box is simply the
+    // rectangle from that origin out by width/height.
+    const ex = item.transform[4], ey = item.transform[5];
+    const corners = [
+      [ex, ey],
+      [ex + item.width, ey],
+      [ex, ey + item.height],
+      [ex + item.width, ey + item.height],
+    ].map(([px, py]) => [
+      viewport.transform[0] * px + viewport.transform[2] * py + viewport.transform[4],
+      viewport.transform[1] * px + viewport.transform[3] * py + viewport.transform[5],
+    ]);
+    const xs = corners.map((c) => c[0]);
+    const ys = corners.map((c) => c[1]);
+    rects.push({ minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) });
+  }
+  return rects;
+}
+
 async function detectCards() {
   const loadingTask = pdfjsLib.getDocument({ data: currentFileBytes.slice() });
   const doc = await loadingTask.promise;
@@ -378,7 +409,8 @@ async function detectCards() {
 
     setStatus(`${pageNum}ページ目のカードを検出しています…`, null);
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const boxesPx = detectCardBoxes(imgData, canvas.width, canvas.height);
+    const excludeRects = await getLogoutTextRects(page, viewport);
+    const boxesPx = detectCardBoxes(imgData, canvas.width, canvas.height, excludeRects);
     if (boxesPx.length === 0) {
       throw new Error(
         `${pageNum}ページ目で商品カードを検出できませんでした。フォーマットが対応していない可能性があります。`
@@ -646,7 +678,7 @@ async function renderPreview(pdfBytes) {
 }
 
 // ---- card detection: binarize -> dilate -> connected components -> pick repeating box size ----
-function detectCardBoxes(imgData, width, height) {
+function detectCardBoxes(imgData, width, height, excludeRects) {
   const { data } = imgData;
   const mask = new Uint8Array(width * height);
   for (let y = 0; y < height; y++) {
@@ -693,8 +725,22 @@ function detectCardBoxes(imgData, width, height) {
     }
   }
 
+  // Drop any blob that covers known non-card text (e.g. a "ログアウト" link
+  // baked into the exported page): whether that text ends up as its own
+  // tight blob, or as part of a larger bordered "button" blob around it,
+  // the blob's bounds will contain the text's own center point either way.
+  const excluded = (excludeRects || []).length
+    ? boxes.filter((b) => {
+        return (excludeRects || []).some((r) => {
+          const cx = (r.minX + r.maxX) / 2, cy = (r.minY + r.maxY) / 2;
+          return cx >= b.minX && cx <= b.maxX && cy >= b.minY && cy <= b.maxY;
+        });
+      })
+    : [];
+  const boxesFiltered = excluded.length ? boxes.filter((b) => !excluded.includes(b)) : boxes;
+
   const minArea = (30 * RENDER_SCALE) * (30 * RENDER_SCALE);
-  const big = boxes.filter((b) => b.area > minArea);
+  const big = boxesFiltered.filter((b) => b.area > minArea);
   if (big.length === 0) return [];
 
   // Group by rounded WIDTH, not height: this format lays cards out in fixed-
