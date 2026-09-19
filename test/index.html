@@ -165,7 +165,10 @@
         <div id="schematicPreview" class="schematic-preview"></div>
       </div>
 
-      <p class="schematic-label">変換後のPDFには、用紙下部の余白にこの設定内容が自動で印字されます（後で見返せるようにするための記録用です）。</p>
+      <label class="checkbox-row">
+        <input type="checkbox" id="footerEnabled" checked>
+        <span>用紙下部の余白に設定内容を印字する（後で見返せるようにするための記録用）</span>
+      </label>
       <button id="processBtn">この設定で変換する</button>
       <div id="processStatus" class="status" hidden></div>
     </section>
@@ -182,6 +185,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=33"></script>
+<script type="module" src="app.js?v=34"></script>
 </body>
 </html>
