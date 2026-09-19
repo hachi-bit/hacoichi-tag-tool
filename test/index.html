@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
   <main class="wrap">
@@ -28,6 +28,9 @@
 
     <section id="options" class="options" hidden>
       <h2>レイアウト設定</h2>
+      <div id="restoreSettingsRow" class="restore-settings-row" hidden>
+        <button type="button" id="restoreSettingsBtn" class="secondary-btn">↩️ 前回の設定を復元する（<span id="restoreSettingsWhen"></span>）</button>
+      </div>
       <label class="checkbox-row">
         <input type="checkbox" id="cutGuideEnabled" checked>
         <span>カットガイド（点線の枠）を表示する</span>
@@ -162,6 +165,7 @@
         <div id="schematicPreview" class="schematic-preview"></div>
       </div>
 
+      <p class="schematic-label">変換後のPDFには、用紙下部の余白にこの設定内容が自動で印字されます（後で見返せるようにするための記録用です）。</p>
       <button id="processBtn">この設定で変換する</button>
       <div id="processStatus" class="status" hidden></div>
     </section>
@@ -178,6 +182,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=32"></script>
+<script type="module" src="app.js?v=33"></script>
 </body>
 </html>

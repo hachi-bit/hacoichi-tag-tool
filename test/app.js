@@ -39,6 +39,9 @@ const marginBottomInput = document.getElementById("marginBottom");
 const marginLeftInput = document.getElementById("marginLeft");
 const marginRightInput = document.getElementById("marginRight");
 const gapMmInput = document.getElementById("gapMm");
+const restoreSettingsRow = document.getElementById("restoreSettingsRow");
+const restoreSettingsBtn = document.getElementById("restoreSettingsBtn");
+const restoreSettingsWhen = document.getElementById("restoreSettingsWhen");
 const schematicPreview = document.getElementById("schematicPreview");
 const cardsSectionEl = document.getElementById("cardsSection");
 const cardsListEl = document.getElementById("cardsList");
@@ -300,6 +303,108 @@ cardTrimInput.addEventListener("input", renderSchematic);
 cardScaleInput.addEventListener("input", renderSchematic);
 renderSchematic();
 
+// ---- settings memory: auto-saved to this browser on every change, but only
+// applied back when the user explicitly presses "前回の設定を復元する" (not
+// automatically on load), so opening the tool never silently overrides
+// whatever's already on screen ----
+const SETTINGS_STORAGE_KEY = "hacoichiTagTool.settings.v1";
+
+function collectSettingsState() {
+  return {
+    cutGuideEnabled: cutGuideEnabledInput.checked,
+    stapleEnabled: stapleEnabledInput.checked,
+    detailedMargin: detailedMarginInput.checked,
+    stapleMargin: stapleMarginInput.value,
+    stapleAbove: stapleAboveInput.value,
+    stapleBelow: stapleBelowInput.value,
+    marginUniform: marginUniformInput.value,
+    marginTop: marginTopInput.value,
+    marginBottom: marginBottomInput.value,
+    marginLeft: marginLeftInput.value,
+    marginRight: marginRightInput.value,
+    gapMm: gapMmInput.value,
+    cardScale: cardScaleInput.value,
+    cardTrim: cardTrimInput.value,
+  };
+}
+
+function applySettingsState(values) {
+  if (!values) return;
+  cutGuideEnabledInput.checked = !!values.cutGuideEnabled;
+  stapleEnabledInput.checked = !!values.stapleEnabled;
+  detailedMarginInput.checked = !!values.detailedMargin;
+  if (values.stapleMargin != null) stapleMarginInput.value = values.stapleMargin;
+  if (values.stapleAbove != null) stapleAboveInput.value = values.stapleAbove;
+  if (values.stapleBelow != null) stapleBelowInput.value = values.stapleBelow;
+  if (values.marginUniform != null) marginUniformInput.value = values.marginUniform;
+  if (values.marginTop != null) marginTopInput.value = values.marginTop;
+  if (values.marginBottom != null) marginBottomInput.value = values.marginBottom;
+  if (values.marginLeft != null) marginLeftInput.value = values.marginLeft;
+  if (values.marginRight != null) marginRightInput.value = values.marginRight;
+  if (values.gapMm != null) gapMmInput.value = values.gapMm;
+  if (values.cardScale != null) cardScaleInput.value = values.cardScale;
+  if (values.cardTrim != null) cardTrimInput.value = values.cardTrim;
+
+  // re-sync everything the individual change handlers above would normally
+  // update, since applying a saved state bypasses those handlers
+  const detailed = detailedMarginInput.checked;
+  marginUniformRow.hidden = detailed;
+  marginTopRow.hidden = !detailed;
+  marginBottomRow.hidden = !detailed;
+  marginLeftRow.hidden = !detailed;
+  marginRightRow.hidden = !detailed;
+  updateStapleRowVisibility();
+  syncMarginRequirements();
+  renderSchematic();
+}
+
+function saveSettingsToStorage() {
+  try {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ savedAt: new Date().toISOString(), values: collectSettingsState() })
+    );
+  } catch (err) {
+    // saving is a convenience, not required - private browsing, disabled
+    // storage, or a full quota should never block the actual conversion
+  }
+}
+
+function loadSavedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function refreshRestoreButton() {
+  const saved = loadSavedSettings();
+  if (!saved || !saved.values) {
+    restoreSettingsRow.hidden = true;
+    return;
+  }
+  const d = new Date(saved.savedAt);
+  const pad = (n) => String(n).padStart(2, "0");
+  restoreSettingsWhen.textContent = Number.isNaN(d.getTime())
+    ? "前回"
+    : `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}時点`;
+  restoreSettingsRow.hidden = false;
+}
+
+restoreSettingsBtn.addEventListener("click", () => {
+  const saved = loadSavedSettings();
+  if (saved && saved.values) applySettingsState(saved.values);
+});
+
+// delegated on the whole options section so every current (and future)
+// setting field is covered without wiring each input individually
+optionsEl.addEventListener("input", saveSettingsToStorage);
+optionsEl.addEventListener("change", saveSettingsToStorage);
+
+refreshRestoreButton();
+
 // upload/detection messages go next to the dropzone; conversion messages go
 // next to the "変換する" button - each near the control that triggered it,
 // so an error doesn't end up out of view above a long cards/settings list
@@ -476,6 +581,75 @@ function renderCardsList() {
 }
 
 
+// ---- settings summary footer printed on every output page, so a sheet
+// pulled out later still says what it was made with. Rendered via canvas
+// (not pdf-lib's own text drawing) so it can show Japanese labels using
+// whatever font the browser already has installed, without bundling or
+// embedding a Japanese font file just for this ----
+const FOOTER_FONT_PT = 7;
+const FOOTER_LINE_GAP_PT = FOOTER_FONT_PT * 1.6;
+const FOOTER_SIDE_MARGIN_PT = 10 * MM;
+const FOOTER_RENDER_SCALE = 4; // oversample so the printed text stays crisp
+
+function formatNowForFooter() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function wrapFooterItems(ctx, items, maxWidthPt, sep) {
+  const lines = [];
+  let line = "";
+  for (const item of items) {
+    const candidate = line ? line + sep + item : item;
+    if (line && ctx.measureText(candidate).width > maxWidthPt) {
+      lines.push(line);
+      line = item;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// builds the small raster image placed in the page's bottom margin; returns
+// the canvas plus its height in PDF points (needed before layout, to reserve
+// room for it) - canvas units below are treated 1:1 as PDF points, the same
+// convention RENDER_SCALE already uses for the card-detection canvas
+function renderFooterImage(items, pageWidthPt) {
+  const sep = "　　";
+  const maxWidthPt = pageWidthPt - 2 * FOOTER_SIDE_MARGIN_PT;
+  const measureCtx = document.createElement("canvas").getContext("2d");
+  measureCtx.font = `${FOOTER_FONT_PT}px sans-serif`;
+  const lines = wrapFooterItems(measureCtx, items, maxWidthPt, sep);
+
+  const heightPt = lines.length * FOOTER_LINE_GAP_PT;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(pageWidthPt * FOOTER_RENDER_SCALE);
+  canvas.height = Math.ceil(heightPt * FOOTER_RENDER_SCALE);
+  const ctx = canvas.getContext("2d");
+  ctx.scale(FOOTER_RENDER_SCALE, FOOTER_RENDER_SCALE);
+  ctx.font = `${FOOTER_FONT_PT}px sans-serif`;
+  ctx.fillStyle = "#4a4a4a";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, pageWidthPt / 2, i * FOOTER_LINE_GAP_PT + (FOOTER_LINE_GAP_PT - FOOTER_FONT_PT) / 2);
+  });
+
+  return { canvas, heightPt };
+}
+
+function canvasToPngBytes(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      if (!blob) { reject(new Error("設定情報の画像化に失敗しました。")); return; }
+      resolve(new Uint8Array(await blob.arrayBuffer()));
+    }, "image/png");
+  });
+}
+
 processBtn.addEventListener("click", () => {
   if (!currentFileBytes || !allCardsByPage) return;
   process().catch((err) => {
@@ -523,6 +697,31 @@ async function process() {
   const min_page_margin = 3 * MM; // printer-safe minimum, not a fixed layout margin
   const page_w = 595.0, page_h = 842.0; // A4
 
+  // build the settings-summary footer image now (before the grid math below,
+  // since its height has to be reserved as extra bottom margin)
+  const footerItems = [
+    `変換日時: ${formatNowForFooter()}`,
+    `用紙: A4`,
+    detailedMarginInput.checked
+      ? `余白(上/下/左/右): ${topMm}/${bottomMm}/${leftMm}/${rightMm}mm`
+      : `カードまわりの余白: ${topMm}mm`,
+    `タグ間のすき間: ${gapMm}mm`,
+    `カードの拡大率: ${Math.round(cardScale * 100)}%`,
+    `カードのふちを削る: ${cardTrimMm}mm`,
+    !stapleEnabled
+      ? `ホチキスの目印: なし`
+      : detailedMarginInput.checked
+        ? `ホチキスの目印: あり(上${Math.max(0, numOr(stapleAboveInput.value, 8))}mm/下${Math.max(0, numOr(stapleBelowInput.value, 7))}mm)`
+        : `ホチキスの目印: あり(${stapleAreaMm}mm)`,
+    `カットガイド: ${showCutGuide ? "表示" : "非表示"}`,
+  ];
+  const footerRender = renderFooterImage(footerItems, page_w);
+  const footerPngBytes = await canvasToPngBytes(footerRender.canvas);
+  const footerImage = await outDoc.embedPng(footerPngBytes);
+  const footer_h = footerRender.heightPt;
+  const footer_gap = 3 * MM; // space between the tag grid and the footer text
+  const min_page_margin_bottom = min_page_margin + footer_h + footer_gap;
+
   // cards are usually a consistent size, but height can vary slightly row
   // to row depending on content (e.g. a longer category line), so size the
   // tag grid from the largest card rather than assuming uniform size; each
@@ -538,12 +737,13 @@ async function process() {
   // center the resulting grid so leftover space is spread evenly around it
   // instead of being dumped as one big unused strip on the right/bottom
   const cols = Math.max(1, Math.floor((page_w - 2 * min_page_margin + gap) / (tag_w + gap)));
-  const rows = Math.max(1, Math.floor((page_h - 2 * min_page_margin + gap) / (tag_h + gap)));
+  const rows = Math.max(1, Math.floor((page_h - min_page_margin - min_page_margin_bottom + gap) / (tag_h + gap)));
   const perPage = cols * rows;
   const grid_w = cols * tag_w + (cols - 1) * gap;
   const grid_h = rows * tag_h + (rows - 1) * gap;
   const page_margin_x = (page_w - grid_w) / 2;
-  const page_margin_y = (page_h - grid_h) / 2;
+  const leftover_y = Math.max(0, page_h - grid_h - min_page_margin - min_page_margin_bottom);
+  const page_margin_y = min_page_margin + leftover_y / 2;
 
   let outPage = null;
   let idx = 0;
@@ -635,6 +835,11 @@ async function process() {
         idx++;
       }
     }
+  }
+
+  // stamp the settings summary onto every page produced, not just the first
+  for (const p of outDoc.getPages()) {
+    p.drawImage(footerImage, { x: 0, y: min_page_margin, width: page_w, height: footer_h });
   }
 
   const outBytes = await outDoc.save();

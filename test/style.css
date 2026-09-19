@@ -271,6 +271,18 @@ button.detail-link:focus-visible {
 .card-item .stepper { justify-content: center; }
 .card-item .unit { min-width: 1.4em; }
 
+.restore-settings-row {
+  margin-bottom: 14px;
+}
+.secondary-btn {
+  background: #fff;
+  color: var(--bee-black);
+  border: 1px solid var(--gray-line);
+  font-weight: 500;
+  font-size: 0.88rem;
+}
+.secondary-btn:hover { background: #f1efe8; }
+
 button, .download-btn {
   display: inline-block;
   width: 100%;
