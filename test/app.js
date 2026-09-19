@@ -39,6 +39,7 @@ const marginBottomInput = document.getElementById("marginBottom");
 const marginLeftInput = document.getElementById("marginLeft");
 const marginRightInput = document.getElementById("marginRight");
 const gapMmInput = document.getElementById("gapMm");
+const footerEnabledInput = document.getElementById("footerEnabled");
 const restoreSettingsRow = document.getElementById("restoreSettingsRow");
 const restoreSettingsBtn = document.getElementById("restoreSettingsBtn");
 const restoreSettingsWhen = document.getElementById("restoreSettingsWhen");
@@ -325,6 +326,7 @@ function collectSettingsState() {
     gapMm: gapMmInput.value,
     cardScale: cardScaleInput.value,
     cardTrim: cardTrimInput.value,
+    footerEnabled: footerEnabledInput.checked,
   };
 }
 
@@ -333,6 +335,10 @@ function applySettingsState(values) {
   cutGuideEnabledInput.checked = !!values.cutGuideEnabled;
   stapleEnabledInput.checked = !!values.stapleEnabled;
   detailedMarginInput.checked = !!values.detailedMargin;
+  // settings saved before this option existed have no footerEnabled field -
+  // treat that as "on", matching the checkbox's own default, rather than
+  // silently switching existing users' output off
+  footerEnabledInput.checked = values.footerEnabled !== false;
   if (values.stapleMargin != null) stapleMarginInput.value = values.stapleMargin;
   if (values.stapleAbove != null) stapleAboveInput.value = values.stapleAbove;
   if (values.stapleBelow != null) stapleBelowInput.value = values.stapleBelow;
@@ -698,29 +704,36 @@ async function process() {
   const page_w = 595.0, page_h = 842.0; // A4
 
   // build the settings-summary footer image now (before the grid math below,
-  // since its height has to be reserved as extra bottom margin)
-  const footerItems = [
-    `変換日時: ${formatNowForFooter()}`,
-    `用紙: A4`,
-    detailedMarginInput.checked
-      ? `余白(上/下/左/右): ${topMm}/${bottomMm}/${leftMm}/${rightMm}mm`
-      : `カードまわりの余白: ${topMm}mm`,
-    `タグ間のすき間: ${gapMm}mm`,
-    `カードの拡大率: ${Math.round(cardScale * 100)}%`,
-    `カードのふちを削る: ${cardTrimMm}mm`,
-    !stapleEnabled
-      ? `ホチキスの目印: なし`
-      : detailedMarginInput.checked
-        ? `ホチキスの目印: あり(上${Math.max(0, numOr(stapleAboveInput.value, 8))}mm/下${Math.max(0, numOr(stapleBelowInput.value, 7))}mm)`
-        : `ホチキスの目印: あり(${stapleAreaMm}mm)`,
-    `カットガイド: ${showCutGuide ? "表示" : "非表示"}`,
-  ];
-  const footerRender = renderFooterImage(footerItems, page_w);
-  const footerPngBytes = await canvasToPngBytes(footerRender.canvas);
-  const footerImage = await outDoc.embedPng(footerPngBytes);
-  const footer_h = footerRender.heightPt;
-  const footer_gap = 3 * MM; // space between the tag grid and the footer text
-  const min_page_margin_bottom = min_page_margin + footer_h + footer_gap;
+  // since its height has to be reserved as extra bottom margin) - unless the
+  // user turned it off, in which case no extra space is reserved at all
+  const footerEnabled = footerEnabledInput.checked;
+  let footerImage = null;
+  let footer_h = 0;
+  let min_page_margin_bottom = min_page_margin;
+  if (footerEnabled) {
+    const footerItems = [
+      `変換日時: ${formatNowForFooter()}`,
+      `用紙: A4`,
+      detailedMarginInput.checked
+        ? `余白(上/下/左/右): ${topMm}/${bottomMm}/${leftMm}/${rightMm}mm`
+        : `カードまわりの余白: ${topMm}mm`,
+      `タグ間のすき間: ${gapMm}mm`,
+      `カードの拡大率: ${Math.round(cardScale * 100)}%`,
+      `カードのふちを削る: ${cardTrimMm}mm`,
+      !stapleEnabled
+        ? `ホチキスの目印: なし`
+        : detailedMarginInput.checked
+          ? `ホチキスの目印: あり(上${Math.max(0, numOr(stapleAboveInput.value, 8))}mm/下${Math.max(0, numOr(stapleBelowInput.value, 7))}mm)`
+          : `ホチキスの目印: あり(${stapleAreaMm}mm)`,
+      `カットガイド: ${showCutGuide ? "表示" : "非表示"}`,
+    ];
+    const footerRender = renderFooterImage(footerItems, page_w);
+    const footerPngBytes = await canvasToPngBytes(footerRender.canvas);
+    footerImage = await outDoc.embedPng(footerPngBytes);
+    footer_h = footerRender.heightPt;
+    const footer_gap = 3 * MM; // space between the tag grid and the footer text
+    min_page_margin_bottom = min_page_margin + footer_h + footer_gap;
+  }
 
   // cards are usually a consistent size, but height can vary slightly row
   // to row depending on content (e.g. a longer category line), so size the
@@ -838,8 +851,10 @@ async function process() {
   }
 
   // stamp the settings summary onto every page produced, not just the first
-  for (const p of outDoc.getPages()) {
-    p.drawImage(footerImage, { x: 0, y: min_page_margin, width: page_w, height: footer_h });
+  if (footerEnabled) {
+    for (const p of outDoc.getPages()) {
+      p.drawImage(footerImage, { x: 0, y: min_page_margin, width: page_w, height: footer_h });
+    }
   }
 
   const outBytes = await outDoc.save();
