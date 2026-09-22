@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
   <main class="wrap">
@@ -28,6 +28,19 @@
 
     <section id="options" class="options" hidden>
       <h2>レイアウト設定</h2>
+      <div id="restoreSettingsRow" class="restore-settings-row" hidden>
+        <button type="button" id="restoreSettingsBtn" class="secondary-btn">↩️ 前回の設定を復元する（<span id="restoreSettingsWhen"></span>）</button>
+      </div>
+
+      <div class="presets-block">
+        <p class="schematic-label" style="margin-bottom:8px;">保存した設定（最大10件）</p>
+        <ul id="presetsList" class="presets-list" hidden></ul>
+        <div class="presets-save-row">
+          <input type="text" id="presetNameInput" placeholder="名前を付けて保存（空欄なら日時になります）" maxlength="40">
+          <button type="button" id="savePresetBtn" class="secondary-btn">＋ 現在の設定を保存</button>
+        </div>
+      </div>
+
       <label class="checkbox-row">
         <input type="checkbox" id="cutGuideEnabled" checked>
         <span>カットガイド（点線の枠）を表示する</span>
@@ -162,6 +175,10 @@
         <div id="schematicPreview" class="schematic-preview"></div>
       </div>
 
+      <label class="checkbox-row">
+        <input type="checkbox" id="footerEnabled" checked>
+        <span>用紙下部の余白に設定内容を印字する（後で見返せるようにするための記録用）</span>
+      </label>
       <button id="processBtn">この設定で変換する</button>
       <div id="processStatus" class="status" hidden></div>
     </section>
@@ -178,6 +195,6 @@
   </main>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=32"></script>
+<script type="module" src="app.js?v=35"></script>
 </body>
 </html>
