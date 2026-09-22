@@ -478,3 +478,9 @@ footer {
   max-width: 320px;
   margin-top: 12px;
 }
+/* for crops that don't already carry a border in the screenshot itself
+   (e.g. a plain row or list with no bordered container of its own) */
+.guide-img.bordered {
+  border: 1px solid var(--gray-line);
+  border-radius: 8px;
+}
