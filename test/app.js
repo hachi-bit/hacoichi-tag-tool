@@ -43,6 +43,9 @@ const footerEnabledInput = document.getElementById("footerEnabled");
 const restoreSettingsRow = document.getElementById("restoreSettingsRow");
 const restoreSettingsBtn = document.getElementById("restoreSettingsBtn");
 const restoreSettingsWhen = document.getElementById("restoreSettingsWhen");
+const presetsList = document.getElementById("presetsList");
+const presetNameInput = document.getElementById("presetNameInput");
+const savePresetBtn = document.getElementById("savePresetBtn");
 const schematicPreview = document.getElementById("schematicPreview");
 const cardsSectionEl = document.getElementById("cardsSection");
 const cardsListEl = document.getElementById("cardsList");
@@ -410,6 +413,95 @@ optionsEl.addEventListener("input", saveSettingsToStorage);
 optionsEl.addEventListener("change", saveSettingsToStorage);
 
 refreshRestoreButton();
+
+// ---- named presets: unlike the single auto-saved "last used" slot above,
+// these are only added or removed when the user explicitly asks - so
+// nothing the user wants to keep ever gets silently rotated out ----
+const PRESETS_STORAGE_KEY = "hacoichiTagTool.presets.v1";
+const PRESETS_MAX = 10;
+
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function savePresetsList(presets) {
+  try {
+    localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+  } catch (err) {
+    // best-effort, same as the auto-save memory above
+  }
+}
+
+function formatPresetDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderPresetsList() {
+  const presets = loadPresets();
+  presetsList.hidden = presets.length === 0;
+  presetsList.innerHTML = presets.map((p) => `
+    <li class="preset-item" data-id="${escapeHtml(p.id)}">
+      <div class="preset-info">
+        <div class="preset-name">${escapeHtml(p.name)}</div>
+        <div class="preset-date">${formatPresetDate(p.savedAt)}</div>
+      </div>
+      <div class="preset-actions">
+        <button type="button" class="secondary-btn preset-apply-btn" data-id="${escapeHtml(p.id)}">適用</button>
+        <button type="button" class="preset-delete-btn" data-id="${escapeHtml(p.id)}">削除</button>
+      </div>
+    </li>
+  `).join("");
+}
+
+savePresetBtn.addEventListener("click", () => {
+  const presets = loadPresets();
+  if (presets.length >= PRESETS_MAX) {
+    setProcessStatus(`保存できる設定は最大${PRESETS_MAX}件までです。先に不要なものを削除してください。`, "error");
+    return;
+  }
+  const now = new Date();
+  const typedName = presetNameInput.value.trim();
+  presets.push({
+    id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: typedName || formatPresetDate(now.toISOString()),
+    savedAt: now.toISOString(),
+    values: collectSettingsState(),
+  });
+  savePresetsList(presets);
+  presetNameInput.value = "";
+  renderPresetsList();
+});
+
+presetsList.addEventListener("click", (e) => {
+  const applyBtn = e.target.closest(".preset-apply-btn");
+  if (applyBtn) {
+    const preset = loadPresets().find((p) => p.id === applyBtn.dataset.id);
+    if (preset) applySettingsState(preset.values);
+    return;
+  }
+  const deleteBtn = e.target.closest(".preset-delete-btn");
+  if (deleteBtn) {
+    const preset = loadPresets().find((p) => p.id === deleteBtn.dataset.id);
+    if (preset && !confirm(`「${preset.name}」を削除しますか？`)) return;
+    savePresetsList(loadPresets().filter((p) => p.id !== deleteBtn.dataset.id));
+    renderPresetsList();
+  }
+});
+
+renderPresetsList();
 
 // upload/detection messages go next to the dropzone; conversion messages go
 // next to the "変換する" button - each near the control that triggered it,
