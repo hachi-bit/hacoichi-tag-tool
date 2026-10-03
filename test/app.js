@@ -566,15 +566,24 @@ async function handleFile(file) {
 // render each source page to a canvas, detect card boxes, and crop a
 // thumbnail per card so the "枚数" list can show what each one actually is
 // ハコイチの管理画面をそのままPDF出力すると、商品カードとは無関係な
-// 「ログアウト」リンクがページ上部に含まれることがある。これが偶然カード
-// と近い横幅のブロックとして検出され、タグの1枚として誤認識されてしまう
-// ことがあるため、テキストレイヤーから位置を特定してピクセル検出の対象
-// から除外する（画像だけでは文字の内容を判別できないため）。
-async function getLogoutTextRects(page, viewport) {
+// 「ログアウト」リンクや、ブラウザの印刷機能が自動で付け足すフッター
+// （書き出し元のURLやページ番号）がページに含まれることがある。1ページに
+// カードが1枚しかない場合、幅のグループ分けが同率（1件ずつ）になり、タイ
+// ブレークで「より横幅が広い方」が優先されるため、ページ全幅近くまで伸びる
+// 横長のURL行が本物のカードより優先されて誤検出されてしまう。画像だけでは
+// 文字の内容を判別できないため、テキストレイヤーから位置を特定してピクセル
+// 検出の対象から除外する。
+async function getExcludedTextRects(page, viewport) {
   const textContent = await page.getTextContent();
   const rects = [];
   for (const item of textContent.items) {
-    if (!item.str || !item.str.includes("ログアウト")) continue;
+    const str = (item.str || "").trim();
+    if (!str) continue;
+    const isNoise =
+      str.includes("ログアウト") ||
+      /^https?:\/\//i.test(str) || // ブラウザの印刷フッターに入るURL
+      /^\d+\s*\/\s*\d+$/.test(str); // 同じフッターのページ番号（例: 1/1）
+    if (!isNoise) continue;
     // item.transform's (e, f) is the run's origin in PDF page space, and
     // item.width/height are already in that same page-space scale (not a
     // local glyph space to be re-scaled), so the run's box is simply the
@@ -612,7 +621,7 @@ async function detectCards() {
 
     setStatus(`${pageNum}ページ目のカードを検出しています…`, null);
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const excludeRects = await getLogoutTextRects(page, viewport);
+    const excludeRects = await getExcludedTextRects(page, viewport);
     const boxesPx = detectCardBoxes(imgData, canvas.width, canvas.height, excludeRects);
     if (boxesPx.length === 0) {
       throw new Error(
@@ -1038,8 +1047,9 @@ function detectCardBoxes(imgData, width, height, excludeRects) {
   }
 
   // Drop any blob that covers known non-card text (e.g. a "ログアウト" link
-  // baked into the exported page): whether that text ends up as its own
-  // tight blob, or as part of a larger bordered "button" blob around it,
+  // or the browser print footer's URL/page-number, baked into the exported
+  // page): whether that text ends up as its own tight blob, or as part of a
+  // larger bordered "button" blob around it,
   // the blob's bounds will contain the text's own center point either way.
   const excluded = (excludeRects || []).length
     ? boxes.filter((b) => {
