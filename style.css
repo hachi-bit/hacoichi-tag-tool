@@ -484,3 +484,25 @@ footer {
   border: 1px solid var(--gray-line);
   border-radius: 8px;
 }
+
+/* 「このまま印刷する」ボタンと、印刷専用のページ画像 */
+.print-btn { margin-top: 10px; }
+.print-note {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #6b6255;
+  line-height: 1.6;
+}
+.print-area { display: none; }
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body > *:not(.print-area) { display: none !important; }
+  .print-area { display: block; }
+  .print-sheet {
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+  }
+  .print-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .print-sheet img { display: block; width: 100%; height: 100%; }
+}

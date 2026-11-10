@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
   <main class="wrap">
@@ -188,14 +188,17 @@
       <h2>プレビュー</h2>
       <div id="previewPages" class="preview-pages"></div>
       <a id="downloadLink" class="download-btn" hidden download="値札_ホチキス加工版.pdf">📄 加工済みPDFをダウンロード</a>
+      <button id="printBtn" type="button" class="print-btn" hidden>🖨️ このまま印刷する</button>
+      <p id="printNote" class="print-note" hidden>印刷画面では「サイズ調整」を100%（等倍）、余白を「なし」にしてください。ホチキスの位置がずれるときは、PDFをダウンロードして印刷してください。</p>
     </div>
 
     <footer>
       <p>鉢-bit（はちびっと） / 処理はすべてこのブラウザ内で行われます。PDFは外部に送信されません。</p>
     </footer>
   </main>
+  <div id="printArea" class="print-area" aria-hidden="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=37"></script>
+<script type="module" src="app.js?v=38"></script>
 </body>
 </html>

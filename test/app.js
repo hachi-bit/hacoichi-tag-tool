@@ -17,6 +17,9 @@ const processBtn = document.getElementById("processBtn");
 const previewArea = document.getElementById("previewArea");
 const previewPagesEl = document.getElementById("previewPages");
 const downloadLink = document.getElementById("downloadLink");
+const printBtn = document.getElementById("printBtn");
+const printNote = document.getElementById("printNote");
+const printArea = document.getElementById("printArea");
 const cutGuideEnabledInput = document.getElementById("cutGuideEnabled");
 const stapleEnabledInput = document.getElementById("stapleEnabled");
 const stapleMarginRow = document.getElementById("stapleMarginRow");
@@ -989,10 +992,75 @@ async function process() {
   downloadLink.hidden = false;
 
   await renderPreview(outBytes);
+  await preparePrintPages(outBytes);
 
   setProcessStatus(`完成しました！${totalCards}件のタグを作成しました。`, "ok");
   processBtn.disabled = false;
 }
+
+// 「このまま印刷する」用に、完成したPDFを高解像度の画像にして印刷専用の
+// エリアに並べておく。PDFそのものをスマホのブラウザから印刷に回すのは
+// 不安定（AndroidのChromeはPDFを表示できずダウンロードになる等）なので、
+// ハコイチの管理画面と同じく「ページを印刷する」方式にする。押した瞬間に
+// 印刷画面を開けるよう、画像は変換の時点で作っておく。
+const PRINT_DPI = 300;
+const printUrls = [];
+async function preparePrintPages(pdfBytes) {
+  printBtn.hidden = true;
+  printNote.hidden = true;
+  printUrls.forEach((u) => URL.revokeObjectURL(u));
+  printUrls.length = 0;
+  printArea.innerHTML = "";
+
+  const doc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+  let pageSizeMm = null;
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum);
+    const base = page.getViewport({ scale: 1 }); // 1 = 1pt
+    const wMm = (base.width * 25.4) / 72, hMm = (base.height * 25.4) / 72;
+    if (!pageSizeMm) pageSizeMm = { w: wMm, h: hMm };
+    const viewport = page.getViewport({ scale: PRINT_DPI / 72 });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    canvas.width = canvas.height = 0; // free the big canvas right away (iPhone has a tight limit)
+    const url = URL.createObjectURL(blob);
+    printUrls.push(url);
+
+    const sheet = document.createElement("div");
+    sheet.className = "print-sheet";
+    sheet.style.width = `${wMm}mm`;
+    sheet.style.height = `${hMm}mm`;
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    sheet.appendChild(img);
+    printArea.appendChild(sheet);
+    await img.decode().catch(() => {});
+  }
+
+  // the printed sheet must come out at exactly 100% so the mm-based staple
+  // marks and cut guides stay true, so pin the paper size and zero margins
+  let pageStyle = document.getElementById("printPageStyle");
+  if (!pageStyle) {
+    pageStyle = document.createElement("style");
+    pageStyle.id = "printPageStyle";
+    document.head.appendChild(pageStyle);
+  }
+  pageStyle.textContent = `@page { size: ${pageSizeMm.w.toFixed(2)}mm ${pageSizeMm.h.toFixed(2)}mm; margin: 0; }`;
+
+  printBtn.hidden = false;
+  printNote.hidden = false;
+}
+
+printBtn.addEventListener("click", () => {
+  window.print();
+});
 
 async function renderPreview(pdfBytes) {
   const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice() });
