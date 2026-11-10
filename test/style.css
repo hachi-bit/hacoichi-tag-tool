@@ -529,7 +529,7 @@ footer {
 .schem-group { position: relative; display: flex; align-items: flex-start; }
 .schematic-preview.crop { padding: 26px; }
 .schematic-preview.crop .schem-tag { border: none; }
-.schem-mark { position: absolute; background: #6b6152; }
+.schem-mark { position: absolute; background: #a6a6a6; }
 .schem-mark.v { width: 1px; margin-left: -0.5px; }
 .schem-mark.h { height: 1px; margin-top: -0.5px; }
-.schem-dot { position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #6b6152; z-index: 2; }
+.schem-dot { position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #a6a6a6; z-index: 2; }

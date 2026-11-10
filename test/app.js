@@ -847,7 +847,7 @@ processBtn.addEventListener("click", () => {
 function drawCropMarks(page, o) {
   const { count, cols, tag_w, tag_h, gap, page_w, page_h, page_margin_x, page_margin_y, min_page_margin, bottomLimit, rgb } = o;
   if (count <= 0) return;
-  const color = rgb(0.25, 0.25, 0.25);
+  const color = rgb(0.65, 0.65, 0.65); // light, same gray as the staple mark
   const thickness = 0.5;
   const rowsUsed = Math.ceil(count / cols);
   const line = (x1, y1, x2, y2) => page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, color, thickness });
@@ -1057,7 +1057,7 @@ async function process() {
         const tagBottomY = page_h - (oyTop + tag_h);
 
         if (showCutGuide) {
-          const guideColor = rgb(0.5, 0.5, 0.5);
+          const guideColor = rgb(0.65, 0.65, 0.65);
           const guideWidth = 0.7;
           const dashArray = [4, 2.5];
           const left = ox, right = ox + tag_w;
