@@ -2,6 +2,16 @@
 // すべての処理はブラウザ内で完結（PDFはサーバーに送信されません）
 
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.min.mjs";
+// iPhoneの「印刷→PDF保存」などで作ったPDFは、日本語フォントを埋め込まず
+// 「この文字コード表（CMap）で読んでね」とだけ書いてあることがある。pdf.js は
+// その表を別ファイルとして読みに行くので、場所を教えないと日本語の文字が
+// 丸ごと描かれない（商品名や価格が消えて、バーコードだけのタグになる）。
+const PDFJS_BASE = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/";
+const PDFJS_DOC_OPTIONS = {
+  cMapUrl: PDFJS_BASE + "cmaps/",
+  cMapPacked: true,
+  standardFontDataUrl: PDFJS_BASE + "standard_fonts/",
+};
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.worker.min.mjs";
 
@@ -627,7 +637,7 @@ function findHelpLinkItems(items) {
   const found = new Set();
   let word = [];
   const flush = () => {
-    const text = word.map((it) => it.str).join("").replace(/\s/g, "").replace(/^❓/, "");
+    const text = word.map((it) => it.str).join("").replace(/\s/g, "").replace(/^[❓?？]/, "");
     if (text === "困ったときは") word.forEach((it) => found.add(it));
     word = [];
   };
@@ -676,7 +686,7 @@ async function getExcludedTextRects(page, viewport) {
 }
 
 async function detectCards() {
-  const loadingTask = pdfjsLib.getDocument({ data: currentFileBytes.slice() });
+  const loadingTask = pdfjsLib.getDocument({ data: currentFileBytes.slice(), ...PDFJS_DOC_OPTIONS });
   const doc = await loadingTask.promise;
 
   const result = [];
@@ -1164,7 +1174,7 @@ async function preparePrintPages(pdfBytes) {
   printUrls.length = 0;
   printArea.innerHTML = "";
 
-  const doc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+  const doc = await pdfjsLib.getDocument({ data: pdfBytes.slice(), ...PDFJS_DOC_OPTIONS }).promise;
   let pageSizeMm = null;
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
     const page = await doc.getPage(pageNum);
@@ -1215,7 +1225,7 @@ printBtn.addEventListener("click", () => {
 });
 
 async function renderPreview(pdfBytes) {
-  const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice() });
+  const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice(), ...PDFJS_DOC_OPTIONS });
   const doc = await loadingTask.promise;
   previewPagesEl.innerHTML = "";
   // show every output page, not just the first - otherwise a multi-page
