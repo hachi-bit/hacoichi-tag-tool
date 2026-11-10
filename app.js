@@ -573,17 +573,38 @@ async function handleFile(file) {
 // 横長のURL行が本物のカードより優先されて誤検出されてしまう。画像だけでは
 // 文字の内容を判別できないため、テキストレイヤーから位置を特定してピクセル
 // 検出の対象から除外する。
+// 「❓ 困ったときは」はフォントの都合で「❓」「困」「ったときは」のように
+// 細切れのテキストで入っていることがある。空白をはさまずに続く同じ行の
+// テキストを1つの語としてつなげ、語全体が「困ったときは」のときだけ対象に
+// する（商品名に「困ったとき」が含まれていても、カードごと消さないため）。
+function findHelpLinkItems(items) {
+  const found = new Set();
+  let word = [];
+  const flush = () => {
+    const text = word.map((it) => it.str).join("").replace(/\s/g, "").replace(/^❓/, "");
+    if (text === "困ったときは") word.forEach((it) => found.add(it));
+    word = [];
+  };
+  for (const item of items) {
+    if (!(item.str || "").trim()) { flush(); continue; }
+    if (word.length && Math.abs(word[0].transform[5] - item.transform[5]) >= 1) flush();
+    word.push(item);
+    if (item.hasEOL) flush();
+  }
+  flush();
+  return found;
+}
+
 async function getExcludedTextRects(page, viewport) {
   const textContent = await page.getTextContent();
   const rects = [];
+  const helpItems = findHelpLinkItems(textContent.items);
   for (const item of textContent.items) {
     const str = (item.str || "").trim();
     if (!str) continue;
     const isNoise =
       str.includes("ログアウト") ||
-      // 管理画面右上の「❓ 困ったときは」リンク。商品名に含まれていても
-      // カードごと消えないよう、短いテキスト（リンク単体）のときだけ対象にする
-      (str.includes("困ったとき") && str.length <= 10) ||
+      helpItems.has(item) || // 管理画面右上の「❓ 困ったときは」リンク
       /^https?:\/\//i.test(str) || // ブラウザの印刷フッターに入るURL
       /^\d+\s*\/\s*\d+$/.test(str); // 同じフッターのページ番号（例: 1/1）
     if (!isNoise) continue;
