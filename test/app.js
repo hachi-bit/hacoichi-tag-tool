@@ -566,7 +566,7 @@ async function handleFile(file) {
 // render each source page to a canvas, detect card boxes, and crop a
 // thumbnail per card so the "枚数" list can show what each one actually is
 // ハコイチの管理画面をそのままPDF出力すると、商品カードとは無関係な
-// 「ログアウト」リンクや、ブラウザの印刷機能が自動で付け足すフッター
+// 「ログアウト」「困ったときは」リンクや、ブラウザの印刷機能が自動で付け足すフッター
 // （書き出し元のURLやページ番号）がページに含まれることがある。1ページに
 // カードが1枚しかない場合、幅のグループ分けが同率（1件ずつ）になり、タイ
 // ブレークで「より横幅が広い方」が優先されるため、ページ全幅近くまで伸びる
@@ -581,6 +581,9 @@ async function getExcludedTextRects(page, viewport) {
     if (!str) continue;
     const isNoise =
       str.includes("ログアウト") ||
+      // 管理画面右上の「❓ 困ったときは」リンク。商品名に含まれていても
+      // カードごと消えないよう、短いテキスト（リンク単体）のときだけ対象にする
+      (str.includes("困ったとき") && str.length <= 10) ||
       /^https?:\/\//i.test(str) || // ブラウザの印刷フッターに入るURL
       /^\d+\s*\/\s*\d+$/.test(str); // 同じフッターのページ番号（例: 1/1）
     if (!isNoise) continue;
