@@ -506,3 +506,29 @@ footer {
   .print-sheet:last-child { break-after: auto; page-break-after: auto; }
   .print-sheet img { display: block; width: 100%; height: 100%; }
 }
+
+/* カットガイドの選択（点線／トンボ／なし） */
+.select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 0.9rem;
+}
+.select-row > span { white-space: nowrap; flex-shrink: 0; }
+.select-row select {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--gray-line);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.9rem;
+  color: var(--bee-black);
+}
+/* トンボ in the 2-tag illustration */
+.schem-group { position: relative; display: flex; align-items: flex-start; }
+.schematic-preview.crop { padding: 26px; }
+.schematic-preview.crop .schem-tag { border: none; }
+.schem-mark { position: absolute; background: #6b6152; }
+.schem-mark.v { width: 1px; margin-left: -0.5px; }
+.schem-mark.h { height: 1px; margin-top: -0.5px; }
