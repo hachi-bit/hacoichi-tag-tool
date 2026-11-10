@@ -125,6 +125,9 @@ function schemCropMarksHtml(tagWmm, tagHmm, gapMm) {
     parts.push(`<i class="schem-mark h" style="top:${y}px; left:${-off - len}px; width:${len}px;"></i>`);
     parts.push(`<i class="schem-mark h" style="top:${y}px; left:${2 * w + g + off}px; width:${len}px;"></i>`);
   }
+  // corner dots
+  const dotXs = [0, w, w + g, 2 * w + g];
+  for (const x of dotXs) for (const y of ys) parts.push(`<i class="schem-dot" style="left:${x}px; top:${y}px;"></i>`);
   return parts.join("");
 }
 
@@ -152,6 +155,7 @@ function cropTrimPreview(trimMm) {
 const CROP_OFFSET = 2 * MM;
 const CROP_LEN = 5 * MM;
 const CROP_ZONE = CROP_OFFSET + CROP_LEN;
+const CROP_DOT_R = 0.5 * MM; // corner dot (1mm across)
 const CROP_MIN_LEN = 1.5 * MM; // shorter than this would just look like a speck - skip it
 const CUT_GUIDE_MIN_MM = 1; // a guide with no room of its own sits on the card's edge and gets covered
 const STAPLE_MIN_MM = 8; // needs enough room to fold and actually get a staple through
@@ -891,6 +895,23 @@ function drawCropMarks(page, o) {
     if (leftLen) line(page_margin_x - CROP_OFFSET, y, page_margin_x - CROP_OFFSET - leftLen, y);
     const rightLen = lenFor(page_w - min_page_margin - right);
     if (rightLen) line(right + CROP_OFFSET, y, right + CROP_OFFSET + rightLen, y);
+  }
+
+  // a small dot on every tag corner: once the sheet is cut into strips the
+  // outer marks only survive on the end strips, so these let every strip
+  // still show where its next cut goes. Centered on the corner, so cutting
+  // through it leaves just a tiny quarter-dot on each tag's corner, well
+  // clear of the card itself
+  const seenDots = [];
+  for (let i = 0; i < count; i++) {
+    const c = i % cols, r = Math.floor(i / cols);
+    for (const x of [colX(c), colX(c) + tag_w]) {
+      for (const y of [rowTop(r), rowTop(r) - tag_h]) {
+        if (seenDots.some((d) => Math.abs(d.x - x) < 0.01 && Math.abs(d.y - y) < 0.01)) continue;
+        seenDots.push({ x, y });
+        page.drawCircle({ x, y, size: CROP_DOT_R, color });
+      }
+    }
   }
 }
 
