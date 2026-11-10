@@ -20,7 +20,12 @@ const downloadLink = document.getElementById("downloadLink");
 const printBtn = document.getElementById("printBtn");
 const printNote = document.getElementById("printNote");
 const printArea = document.getElementById("printArea");
-const cutGuideEnabledInput = document.getElementById("cutGuideEnabled");
+const cutGuideModeInput = document.getElementById("cutGuideMode");
+// "dashed" = 点線の枠 / "crop" = トンボ（タグの並びの外側の余白だけに短い線） / "none"
+function getCutGuideMode() {
+  const v = cutGuideModeInput.value;
+  return v === "crop" || v === "none" ? v : "dashed";
+}
 const stapleEnabledInput = document.getElementById("stapleEnabled");
 const stapleMarginRow = document.getElementById("stapleMarginRow");
 const stapleMarginInput = document.getElementById("stapleMargin");
@@ -104,6 +109,28 @@ function schemTagHtml(tagWmm, tagHmm, leftMm, cardTopMm, stapleAreaMm, stapleCro
   `;
 }
 
+// トンボ for the 2-tag illustration: short lines just outside the pair,
+// on the extension of every cut line (never on the tags themselves)
+function schemCropMarksHtml(tagWmm, tagHmm, gapMm) {
+  const off = schemPx(2), len = schemPx(5);
+  const w = schemPx(tagWmm), h = schemPx(tagHmm), g = schemPx(gapMm);
+  const xs = [0, w, w + g, 2 * w + g].filter((x, i, a) => a.findIndex((y) => Math.abs(y - x) < 0.5) === i);
+  const ys = [0, h];
+  const parts = [];
+  for (const x of xs) {
+    parts.push(`<i class="schem-mark v" style="left:${x}px; top:${-off - len}px; height:${len}px;"></i>`);
+    parts.push(`<i class="schem-mark v" style="left:${x}px; top:${h + off}px; height:${len}px;"></i>`);
+  }
+  for (const y of ys) {
+    parts.push(`<i class="schem-mark h" style="top:${y}px; left:${-off - len}px; width:${len}px;"></i>`);
+    parts.push(`<i class="schem-mark h" style="top:${y}px; left:${2 * w + g + off}px; width:${len}px;"></i>`);
+  }
+  // corner dots
+  const dotXs = [0, w, w + g, 2 * w + g];
+  for (const x of dotXs) for (const y of ys) parts.push(`<i class="schem-dot" style="left:${x}px; top:${y}px;"></i>`);
+  return parts.join("");
+}
+
 // offscreen canvas used only to crop the real reference card at the current
 // trim amount for the schematic preview below
 const trimCropCanvas = document.createElement("canvas");
@@ -123,6 +150,13 @@ function cropTrimPreview(trimMm) {
 // or four independent values when "余白を上下左右で個別に設定する" is on.
 // The staple flap (ホチキスの余白) is separate, additional space stacked
 // above the regular top margin - not a substitute for it. ----
+// トンボ: a short line on the extension of each cut line, kept CROP_OFFSET
+// clear of the tags so nothing ever lands on a tag itself
+const CROP_OFFSET = 2 * MM;
+const CROP_LEN = 5 * MM;
+const CROP_ZONE = CROP_OFFSET + CROP_LEN;
+const CROP_DOT_R = 0.5 * MM; // corner dot (1mm across)
+const CROP_MIN_LEN = 1.5 * MM; // shorter than this would just look like a speck - skip it
 const CUT_GUIDE_MIN_MM = 1; // a guide with no room of its own sits on the card's edge and gets covered
 const STAPLE_MIN_MM = 8; // needs enough room to fold and actually get a staple through
 
@@ -155,7 +189,8 @@ function getStapleGeometry() {
 // visibly rather than silently substituted) in sync with what cut guide
 // currently needs, so what's shown always matches what's used
 function syncMarginRequirements() {
-  const min = cutGuideEnabledInput.checked ? CUT_GUIDE_MIN_MM : 0;
+  // only the dashed frame sits on the tag edge; crop marks live outside the grid
+  const min = getCutGuideMode() === "dashed" ? CUT_GUIDE_MIN_MM : 0;
   function apply(input) {
     input.min = String(min);
     if (numOr(input.value, 0) < min) input.value = min;
@@ -178,7 +213,8 @@ function getCardScale() {
 
 function renderSchematic() {
   const showStaple = stapleEnabledInput.checked;
-  const showCutGuide = cutGuideEnabledInput.checked;
+  const cutGuideMode = getCutGuideMode();
+  const showCutGuide = cutGuideMode === "dashed";
   syncMarginRequirements();
   const { top, bottom, left, right } = getMargins();
   const { area: stapleAreaMm, cross: stapleCrossMm } = getStapleGeometry();
@@ -200,7 +236,9 @@ function renderSchematic() {
   const tagHmm = cardTopMm + cardHmm + bottom;
   const tag1 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, false);
   const tag2 = schemTagHtml(tagWmm, tagHmm, left, cardTopMm, stapleAreaMm, stapleCrossMm, cardWmm, cardHmm, cardImgSrc, showStaple, showCutGuide, gapMm === 0);
-  schematicPreview.innerHTML = `${tag1}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag2}`;
+  const marks = cutGuideMode === "crop" ? schemCropMarksHtml(tagWmm, tagHmm, gapMm) : "";
+  schematicPreview.classList.toggle("crop", cutGuideMode === "crop");
+  schematicPreview.innerHTML = `<div class="schem-group">${tag1}<div class="schem-gap" style="width:${schemPx(gapMm)}px;"></div>${tag2}${marks}</div>`;
 }
 
 function adjustValue(input, step) {
@@ -260,7 +298,7 @@ function updateStapleRowVisibility() {
   stapleBelowRow.hidden = !on || !detailed;
 }
 
-cutGuideEnabledInput.addEventListener("change", renderSchematic);
+cutGuideModeInput.addEventListener("change", renderSchematic);
 stapleEnabledInput.addEventListener("change", () => {
   updateStapleRowVisibility();
   if (stapleEnabledInput.checked && numOr(stapleMarginInput.value, 0) < STAPLE_MIN_MM) {
@@ -318,7 +356,9 @@ const SETTINGS_STORAGE_KEY = "hacoichiTagTool.settings.v1";
 
 function collectSettingsState() {
   return {
-    cutGuideEnabled: cutGuideEnabledInput.checked,
+    cutGuideMode: getCutGuideMode(),
+    // kept for older copies of the tool reading these settings
+    cutGuideEnabled: getCutGuideMode() === "dashed",
     stapleEnabled: stapleEnabledInput.checked,
     detailedMargin: detailedMarginInput.checked,
     stapleMargin: stapleMarginInput.value,
@@ -338,7 +378,10 @@ function collectSettingsState() {
 
 function applySettingsState(values) {
   if (!values) return;
-  cutGuideEnabledInput.checked = !!values.cutGuideEnabled;
+  // settings saved before トンボ existed only have the on/off flag
+  cutGuideModeInput.value = ["dashed", "crop", "none"].includes(values.cutGuideMode)
+    ? values.cutGuideMode
+    : (values.cutGuideEnabled ? "dashed" : "none");
   stapleEnabledInput.checked = !!values.stapleEnabled;
   detailedMarginInput.checked = !!values.detailedMargin;
   // settings saved before this option existed have no footerEnabled field -
@@ -793,11 +836,91 @@ processBtn.addEventListener("click", () => {
   });
 });
 
+// draws the トンボ for one output page holding `count` tags (the last page
+// may be only partly filled). Every cut line - each tag's left/right and
+// top/bottom edge, shared when gap is 0 - gets a short mark just outside
+// the grid: above row 0 and below each column's lowest tag for vertical
+// lines, left of column 0 and right of each row's last tag for horizontal
+// ones. Marks shrink to the room actually available and are skipped when
+// there's too little, so they never run off the printable area or into
+// the footer text.
+function drawCropMarks(page, o) {
+  const { count, cols, tag_w, tag_h, gap, page_w, page_h, page_margin_x, page_margin_y, min_page_margin, bottomLimit, rgb } = o;
+  if (count <= 0) return;
+  const color = rgb(0.65, 0.65, 0.65); // light, same gray as the staple mark
+  const thickness = 0.5;
+  const rowsUsed = Math.ceil(count / cols);
+  const line = (x1, y1, x2, y2) => page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, color, thickness });
+  const lenFor = (room) => {
+    const len = Math.min(CROP_LEN, room - CROP_OFFSET);
+    return len >= CROP_MIN_LEN ? len : 0;
+  };
+  const colX = (c) => page_margin_x + c * (tag_w + gap);
+  const rowTop = (r) => page_h - (page_margin_y + r * (tag_h + gap)); // PDF y of the row's top edge
+
+  // vertical cut lines
+  const seenX = [];
+  for (let c = 0; c < Math.min(cols, count); c++) {
+    const lastRow = Math.floor((count - 1 - c) / cols); // lowest row that has a tag in this column
+    for (const x of [colX(c), colX(c) + tag_w]) {
+      if (seenX.some((v) => Math.abs(v - x) < 0.01)) continue;
+      seenX.push(x);
+      const top = rowTop(0);
+      const upLen = lenFor(page_h - min_page_margin - top);
+      if (upLen) line(x, top + CROP_OFFSET, x, top + CROP_OFFSET + upLen);
+      // a line shared by two columns runs down to the deeper one
+      const rows = [lastRow];
+      const other = x === colX(c) ? c - 1 : c + 1;
+      if (other >= 0 && other < Math.min(cols, count) && gap === 0) rows.push(Math.floor((count - 1 - other) / cols));
+      const bottom = rowTop(Math.max(...rows)) - tag_h;
+      const downLen = lenFor(bottom - bottomLimit);
+      if (downLen) line(x, bottom - CROP_OFFSET, x, bottom - CROP_OFFSET - downLen);
+    }
+  }
+
+  // horizontal cut lines
+  const seenY = [];
+  for (let r = 0; r < rowsUsed; r++) {
+    const inRow = Math.min(cols, count - r * cols);
+    const right = colX(inRow - 1) + tag_w;
+    for (const y of [rowTop(r), rowTop(r) - tag_h]) {
+      const seen = seenY.find((v) => Math.abs(v.y - y) < 0.01);
+      const rightEdge = seen ? Math.max(seen.right, right) : right;
+      if (seen) { seen.right = rightEdge; continue; }
+      seenY.push({ y, right });
+    }
+  }
+  for (const { y, right } of seenY) {
+    const leftLen = lenFor(page_margin_x - min_page_margin);
+    if (leftLen) line(page_margin_x - CROP_OFFSET, y, page_margin_x - CROP_OFFSET - leftLen, y);
+    const rightLen = lenFor(page_w - min_page_margin - right);
+    if (rightLen) line(right + CROP_OFFSET, y, right + CROP_OFFSET + rightLen, y);
+  }
+
+  // a small dot on every tag corner: once the sheet is cut into strips the
+  // outer marks only survive on the end strips, so these let every strip
+  // still show where its next cut goes. Centered on the corner, so cutting
+  // through it leaves just a tiny quarter-dot on each tag's corner, well
+  // clear of the card itself
+  const seenDots = [];
+  for (let i = 0; i < count; i++) {
+    const c = i % cols, r = Math.floor(i / cols);
+    for (const x of [colX(c), colX(c) + tag_w]) {
+      for (const y of [rowTop(r), rowTop(r) - tag_h]) {
+        if (seenDots.some((d) => Math.abs(d.x - x) < 0.01 && Math.abs(d.y - y) < 0.01)) continue;
+        seenDots.push({ x, y });
+        page.drawCircle({ x, y, size: CROP_DOT_R, color });
+      }
+    }
+  }
+}
+
 async function process() {
   processBtn.disabled = true;
   setProcessStatus("タグPDFを作成しています…", null);
 
-  const showCutGuide = cutGuideEnabledInput.checked;
+  const cutGuideMode = getCutGuideMode();
+  const showCutGuide = cutGuideMode === "dashed";
   const stapleEnabled = stapleEnabledInput.checked;
   syncMarginRequirements();
   const { top: topMm, bottom: bottomMm, left: leftMm, right: rightMm } = getMargins();
@@ -853,7 +976,7 @@ async function process() {
         : detailedMarginInput.checked
           ? `ホチキスの目印: あり(上${Math.max(0, numOr(stapleAboveInput.value, 8))}mm/下${Math.max(0, numOr(stapleBelowInput.value, 7))}mm)`
           : `ホチキスの目印: あり(${stapleAreaMm}mm)`,
-      `カットガイド: ${showCutGuide ? "表示" : "非表示"}`,
+      `カットガイド: ${{ dashed: "点線", crop: "トンボ", none: "なし" }[cutGuideMode]}`,
     ];
     const footerRender = renderFooterImage(footerItems, page_w);
     const footerPngBytes = await canvasToPngBytes(footerRender.canvas);
@@ -877,14 +1000,28 @@ async function process() {
   // fit as many columns/rows as actually fit within a minimal margin, then
   // center the resulting grid so leftover space is spread evenly around it
   // instead of being dumped as one big unused strip on the right/bottom
-  const cols = Math.max(1, Math.floor((page_w - 2 * min_page_margin + gap) / (tag_w + gap)));
-  const rows = Math.max(1, Math.floor((page_h - min_page_margin - min_page_margin_bottom + gap) / (tag_h + gap)));
+  const fitGrid = (mx, mTop, mBottom) => ({
+    cols: Math.max(1, Math.floor((page_w - 2 * mx + gap) / (tag_w + gap))),
+    rows: Math.max(1, Math.floor((page_h - mTop - mBottom + gap) / (tag_h + gap))),
+  });
+  // トンボ need room of their own outside the grid. Reserve it only when that
+  // doesn't cost a single column or row - fitting as many tags as before
+  // comes first, and the marks just get shorter (or skipped) to fit instead
+  let reserveTop = min_page_margin, reserveBottom = min_page_margin_bottom;
+  let { cols, rows } = fitGrid(min_page_margin, reserveTop, reserveBottom);
+  if (cutGuideMode === "crop") {
+    const roomy = fitGrid(min_page_margin + CROP_ZONE, min_page_margin + CROP_ZONE, min_page_margin_bottom + CROP_ZONE);
+    if (roomy.cols >= cols && roomy.rows >= rows) {
+      reserveTop = min_page_margin + CROP_ZONE;
+      reserveBottom = min_page_margin_bottom + CROP_ZONE;
+    }
+  }
   const perPage = cols * rows;
   const grid_w = cols * tag_w + (cols - 1) * gap;
   const grid_h = rows * tag_h + (rows - 1) * gap;
   const page_margin_x = (page_w - grid_w) / 2;
-  const leftover_y = Math.max(0, page_h - grid_h - min_page_margin - min_page_margin_bottom);
-  const page_margin_y = min_page_margin + leftover_y / 2;
+  const leftover_y = Math.max(0, page_h - grid_h - reserveTop - reserveBottom);
+  const page_margin_y = reserveTop + leftover_y / 2;
 
   let outPage = null;
   let idx = 0;
@@ -920,7 +1057,7 @@ async function process() {
         const tagBottomY = page_h - (oyTop + tag_h);
 
         if (showCutGuide) {
-          const guideColor = rgb(0.5, 0.5, 0.5);
+          const guideColor = rgb(0.65, 0.65, 0.65);
           const guideWidth = 0.7;
           const dashArray = [4, 2.5];
           const left = ox, right = ox + tag_w;
@@ -976,6 +1113,21 @@ async function process() {
         idx++;
       }
     }
+  }
+  const totalPlaced = idx;
+
+  if (cutGuideMode === "crop") {
+    const pages = outDoc.getPages();
+    // the lowest point a bottom mark may reach: above the footer text when
+    // it's printed, otherwise the printer-safe margin
+    const bottomLimit = footerEnabled ? min_page_margin + footer_h + 1 * MM : min_page_margin;
+    pages.forEach((page, pi) => {
+      const count = Math.min(perPage, totalPlaced - pi * perPage);
+      drawCropMarks(page, {
+        count, cols, tag_w, tag_h, gap, page_w, page_h,
+        page_margin_x, page_margin_y, min_page_margin, bottomLimit, rgb,
+      });
+    });
   }
 
   // stamp the settings summary onto every page produced, not just the first

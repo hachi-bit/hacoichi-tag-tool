@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ハコイチ値札加工ツール | 鉢-bit</title>
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
   <main class="wrap">
@@ -41,9 +41,13 @@
         </div>
       </div>
 
-      <label class="checkbox-row">
-        <input type="checkbox" id="cutGuideEnabled" checked>
-        <span>カットガイド（点線の枠）を表示する</span>
+      <label class="select-row">
+        <span>カットガイド</span>
+        <select id="cutGuideMode">
+          <option value="dashed" selected>点線の枠</option>
+          <option value="crop">トンボ（外側の目印＋角に小さな点）</option>
+          <option value="none">なし</option>
+        </select>
       </label>
       <label class="checkbox-row">
         <input type="checkbox" id="stapleEnabled">
@@ -198,6 +202,6 @@
   <div id="printArea" class="print-area" aria-hidden="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script type="module" src="app.js?v=38"></script>
+<script type="module" src="app.js?v=41"></script>
 </body>
 </html>
